@@ -1,0 +1,62 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FC_TarPosToModuloPos" Id="{9a6f5353-a7fc-4429-84e4-e7d9ae1e96c7}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION FC_TarPosToModuloPos : LREAL
+VAR_IN_OUT
+	stAxis: ST_Axis;
+END_VAR
+VAR_INPUT
+	eDirection: E_Direction := 1;
+	fTarPos: LREAL;
+	fPeriodPos: LREAL;
+END_VAR
+VAR
+	nCurrModTurns: DINT;
+	fTestCurrentPos: LREAL;
+	fCurrModPos: LREAL;
+	fFwdCmdPosition: LREAL;
+	fRevCmdPosition: LREAL;
+	fRevModTargPos: LREAL;
+	fWindowToUse: LREAL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF fPeriodPos > 0 THEN;
+	fCurrModPos := stAxis.stNcTOPLC.fModuloSetPos;  
+	nCurrModTurns := stAxis.stNcTOPLC.nModuloSetTurns;  
+END_IF
+fWindowToUse := 1;
+IF (eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+	IF fCurrModPos >= (fTarPos - fWindowToUse) AND fCurrModPos <=(fTarPos + fWindowToUse) THEN // in the position window, simply adjust 
+		//fFwdCmdPosition 						:= fTarPos + (nCurrModTurns)*fPeriodPos;   
+		fFwdCmdPosition 						:= stAxis.stNcTOPLC.fActPos;
+	ELSIF fTarPos > fCurrModPos THEN 
+		//fFwdCmdPosition						    := fTarPos + nCurrModTurns*fPeriodPos;
+		fFwdCmdPosition						    := stAxis.stNcTOPLC.fActPos+fTarPos-fCurrModPos;
+	ELSE // position behind us, must add a rev 
+		//fFwdCmdPosition 						:= fTarPos + (nCurrModTurns+1)*fPeriodPos; 
+		fFwdCmdPosition 						:= stAxis.stNcTOPLC.fActPos+fPeriodPos-(fCurrModPos-fTarPos); 
+	END_IF
+	FC_TarPosToModuloPos:=fFwdCmdPosition;
+ELSE
+	//calc backword
+	IF fCurrModPos >=(fTarPos - fWindowToUse) AND fCurrModPos  <= (fTarPos + fWindowToUse) THEN // subtract a rev and go
+		//fRevCmdPosition 						:= (nCurrModTurns - 1)* fPeriodPos + fTarPos;
+		fRevCmdPosition 						:= stAxis.stNcTOPLC.fActPos;
+	ELSIF fCurrModPos > fTarPos  THEN 
+		//fRevCmdPosition 						:= fTarPos + (nCurrModTurns * fPeriodPos);
+		fRevCmdPosition 						:= stAxis.stNcTOPLC.fActPos-(fCurrModPos-fTarPos);
+	ELSE // have to go through a rev to get there
+		//fRevCmdPosition 						:= (nCurrModTurns - 1)* fPeriodPos +fTarPos;
+         fRevCmdPosition 						:= stAxis.stNcTOPLC.fActPos-(fPeriodPos-(fTarPos-fCurrModPos));                         		
+	END_IF
+	FC_TarPosToModuloPos:=fRevCmdPosition;
+END_IF
+]]></ST>
+    </Implementation>
+    <LineIds Name="FC_TarPosToModuloPos">
+      <LineId Id="3" Count="30" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

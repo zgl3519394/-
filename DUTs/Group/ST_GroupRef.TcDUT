@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_GroupRef" Id="{b39c387b-800e-485e-a6b2-f9ab3f57c9e7}">
+    <Declaration><![CDATA[TYPE ST_GroupRef :
+STRUCT
+	/// Axis ID 
+	nGroupId: UINT;
+	nCount: UINT;
+	eGroupType: E_GroupType;
+	/// Axis ID 
+	aAxisId: ARRAY[1..GVL_MC.MAX_MOVER] OF ST_GroupAxisRef;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

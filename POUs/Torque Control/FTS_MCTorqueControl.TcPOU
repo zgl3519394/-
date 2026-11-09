@@ -1,0 +1,214 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_MCTorqueControl" Id="{61f3c639-4923-4c65-9566-87284c34bb06}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_MCTorqueControl
+VAR_IN_OUT
+	stAxis: ST_Axis;
+END_VAR
+VAR_INPUT
+	bExecute: BOOL;
+	///额定扭矩百分比  0.1%
+	fTorque: LREAL;
+	///转矩斜率  0.1%/s
+	fTorqueRamp: LREAL;
+	///最大速度
+	fVelocity: LREAL;
+END_VAR
+VAR_OUTPUT
+	bInTorque: BOOL;
+	bBusy: BOOL;
+	bActive: BOOL;
+	bCommandAborted: BOOL;
+	bError: BOOL;
+	nErrorId: UDINT;
+END_VAR
+VAR
+	_nStep: INT;
+	_nCounter: UDINT;
+	_fTorque: LREAL;
+	_fTorqueBase: LREAL;
+	_fActTorque: LREAL;
+	_fTorqueRamp: LREAL;
+	_fbTrig: R_TRIG;
+	_fbEnbleTrig: R_TRIG;
+	_fbTon: TON;
+	_fbFilterTon: TON;
+	_fbDoneTon: TON;
+END_VAR
+VAR CONSTANT
+	tcDoneTime: TIME := TIME#100ms;
+	tcWaitTime: TIME := TIME#2m0s0ms;
+	tcFilterTime: TIME := TIME#500ms;
+	fDealtTorque: LREAL := 0.2;
+	fCyclcleTime: LREAL := 0.001;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[A_Measure();
+
+A_CommandCheck();
+
+
+CASE _nStep OF
+	0:(* check axis satus*)
+	    IF NOT bExecute THEN
+			bInTorque:=FALSE;
+			bError:=FALSE;
+		    nErrorId:=0;
+		    bCommandAborted:=FALSE;
+		END_IF
+		_fbTon(IN:=FALSE, PT:=tcWaitTime  , Q=> , ET=> );
+		_fbFilterTon(IN:=FALSE, PT:=tcFilterTime  , Q=> , ET=> );
+		_fbDoneTon(IN:=FALSE, PT:=tcDoneTime , Q=> , ET=> );
+	    RETURN;
+   10:
+		  bBusy:=TRUE;
+		  bError:=FALSE;
+		  nErrorID:=0;
+		  bCommandAborted:=FALSE;
+		  bInTorque:=FALSE;
+		  bActive:=FALSE;
+		  _nCounter:=0;
+		  _fActTorque:=0;
+		  _fbTon(IN:=FALSE, PT:=tcWaitTime  , Q=> , ET=> );
+		  _fbFilterTon(IN:=FALSE, PT:=tcFilterTime  , Q=> , ET=> );
+		  _fbDoneTon(IN:=FALSE, PT:=tcDoneTime , Q=> , ET=> );
+		  _fTorqueBase:=stAxis.stCodToNCParam.fActualTorque*10;
+		  stAxis.stAxisStatus.bContinuousMotion:=TRUE;
+		  _nStep:=_nStep+10;
+		  
+	20:
+	     bActive:=TRUE;
+	     
+		 _nCounter:=_nCounter+1;
+		 // 斜率为0阶跃指令
+		 IF (fTorqueRamp=0)THEN 
+			   stAxis.stNcTOPLC.fSetTorque:=_fTorque;
+			  _fActTorque:=_fTorque;
+		 ELSE
+			 IF (_fTorque>=0)THEN 
+			     stAxis.stNcTOPLC.fSetTorque:=_fTorqueBase+_fTorqueRamp*fCyclcleTime*_nCounter;
+			 ELSE
+				 stAxis.stNcTOPLC.fSetTorque:=_fTorqueBase-_fTorqueRamp*fCyclcleTime*_nCounter;
+			 END_IF 
+			 _fActTorque:=stAxis.stNcTOPLC.fSetTorque;
+		 END_IF
+		 
+		// stAxis.stAxisStatus.eMotionState:=E_MCAxisStates.MC_AXISSTATE_CONTINOUSMOTION;
+		// IF ((ABS(_fTorque-_fActTorque)<=fDealtTorque)OR (ABS(_fTorque-stAxis.stCodToNCParam.fActualTorque)<=fDealtTorque)) THEN    //test 
+		_fbFilterTon(IN:=(ABS(_fTorque-stAxis.stCodToNCParam.fActualTorque)<=fDealtTorque*ABS(_fTorque)) , PT:= tcFilterTime, Q=> , ET=> );
+		IF _fbFilterTon.Q THEN 
+			 bBusy:=FALSE;
+		     bActive:=FALSE; 
+			 bInTorque:=TRUE;
+			 _nStep:=30;
+			 _fbFilterTon(IN:=FALSE, PT:=tcFilterTime  , Q=> , ET=> );
+		     //stAxis.stAxisStatus.eMotionState:=E_MCAxisStates.MC_AXISSTATE_STANDSTILL;
+		 END_IF
+		 _fbTon(IN:=TRUE, PT:=tcWaitTime  , Q=> , ET=> );
+		 IF _fbTon.Q THEN 
+			 _nStep:=100;
+			 nErrorID:=30786;
+			 _fbTon(IN:=FALSE, PT:=tcWaitTime  , Q=> , ET=> );
+		 END_IF
+		 (*IF(stAxis.stCodToNCParam.fActualVel>fVelocity) THEN
+			  _nStep:=100;
+			 nErrorID:=16#7228;
+		 END_IF*)
+         A_PosUpdate();
+	30:
+	     _fbDoneTon(IN:=TRUE, PT:=tcDoneTime , Q=> , ET=> );
+         IF _fbDoneTon.Q THEN
+		    bInTorque:=FALSE;
+		    _fbDoneTon(IN:=FALSE, PT:=tcDoneTime , Q=> , ET=> );
+		    _nStep:=0;
+			stAxis.stAxisStatus.bContinuousMotion:=FALSE;
+	     END_IF
+	     A_PosUpdate();
+	
+	100:
+		 bBusy:=FALSE;
+	     bError:=TRUE;
+	     bActive:=FALSE;
+	 
+	     stAxis.stAxisStatus.bError:=TRUE;
+		 stAxis.stAxisStatus.bContinuousMotion:=FALSE;
+	     _nStep:=0; 
+		  
+END_CASE
+]]></ST>
+    </Implementation>
+    <Action Name="A_CommandCheck" Id="{3ff35166-db62-4389-b180-271c5427c3e5}">
+      <Implementation>
+        <ST><![CDATA[_fbTrig(CLK:=bExecute , Q=> );
+IF _fbTrig.Q AND stAxis.stAxisStatus.bEnabled AND (_nStep=0) AND (stAxis.stNcTOPLC.nOpModeDWord=1)  THEN
+	_nStep:=10;
+END_IF
+
+       
+IF stAxis.stAxisStatus.bStopping  AND (_nStep<>0)THEN
+		bCommandAborted:=TRUE;
+		bBusy:=FALSE;
+		bActive:=FALSE;
+	    _nStep:=0;	
+		 _fbTon(IN:=FALSE, PT:=tcWaitTime  , Q=> , ET=> );
+		 stAxis.stAxisStatus.bContinuousMotion:=FALSE;
+END_IF
+	
+
+_fbEnbleTrig(CLK:=NOT stAxis.stAxisStatus.bEnabled , Q=> );
+IF _fbEnbleTrig.Q THEN 
+	
+	bCommandAborted:=TRUE;
+    bBusy:=FALSE;
+	bActive:=FALSE;
+	_fbTon(IN:=FALSE, PT:=tcWaitTime  , Q=> , ET=> );
+    _nStep:=0;	
+	stAxis.stAxisStatus.bContinuousMotion:=FALSE;
+END_IF]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_Measure" Id="{ec4e35e4-c8b4-441a-89bc-82b1c05e359f}">
+      <Implementation>
+        <ST><![CDATA[IF (fTorque>5000)THEN 
+    _fTorque:=5000; 
+ELSIF (fTorque<-5000)THEN
+	_fTorque:=-5000; 
+ELSE
+	_fTorque:=fTorque; 
+END_IF
+
+IF (fTorqueRamp>5000)THEN 
+	_fTorqueRamp:=5000;
+ELSE
+	_fTorqueRamp:=ABS(fTorqueRamp);
+END_IF]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_PosUpdate" Id="{4c8eca23-d358-467b-b026-8c05d15f8061}">
+      <Implementation>
+        <ST><![CDATA[stAxis.stNcTOPLC.fActPos:=stAxis.stCodToNCParam.fActualPos+stAxis.stNcTOPLC.nModuloSetTurns*stAxis.stNcTOPLC.fModuloFactor;;
+stAxis.stNcTOPLC.fTargetPos:=stAxis.stCodToNCParam.fActualPos;
+stAxis.stNcTOPLC.fSetPos:=stAxis.stNcTOPLC.fActPos;
+stAxis.stNcTOPLC.fModuloSetPos:=stAxis.stCodToNCParam.fActualPos;
+stAxis.stNcTOPLC.nCuRoadID:=stAxis.stCodToNCParam.nRoadID;]]></ST>
+      </Implementation>
+    </Action>
+    <LineIds Name="FTS_MCTorqueControl">
+      <LineId Id="3" Count="91" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_MCTorqueControl.A_CommandCheck">
+      <LineId Id="2" Count="24" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_MCTorqueControl.A_Measure">
+      <LineId Id="2" Count="11" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_MCTorqueControl.A_PosUpdate">
+      <LineId Id="2" Count="3" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

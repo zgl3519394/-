@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_GroupState" Id="{6e353dc5-8065-4064-917e-60e1cbf1aabc}">
+    <Declaration><![CDATA[{attribute 'qualified_only' := ''}
+{attribute 'strict' := ''}
+TYPE E_GroupState :
+(
+	MC_GROUPSTATE_UNDEFINED := 0,
+	MC_GROUPSTATE_DISABLED,
+	MC_GROUPSTATE_STANDSTILL,
+	MC_GROUPSTATE_ERRORSTOP,
+	MC_GROUPSTATE_STOPPING,
+	MC_GROUPSTATE_HOMING,
+	MC_GROUPSTATE_MOVING
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

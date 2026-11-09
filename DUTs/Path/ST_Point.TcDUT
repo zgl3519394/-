@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_Point" Id="{ac551612-7fc5-420c-a1f7-febff9c3de72}">
+    <Declaration><![CDATA[TYPE ST_Point :
+STRUCT
+	///02.17
+	nRoadID: UINT;
+	fTime: LREAL;
+	fPosition: LREAL;
+	fVelocity: LREAL;
+	fAccleration: LREAL;
+	fDeceleration: LREAL;
+	fbJerk: LREAL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

@@ -1,0 +1,99 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FC_StrContactEx" Id="{624d9507-93c5-4b3c-b948-79e8eeb0d33e}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION FC_StrContactEx : STRING(1024)
+VAR_INPUT
+	stAxis: ST_Axis;
+	sInfo: STRING;
+END_VAR
+VAR
+	_sMesage: STRING(1024);
+	_sMesage1: STRING;
+	_sMesage2: STRING;
+	_sMesage3: STRING;
+	_sMesage4: STRING;
+	_sMesage5: STRING;
+	_sMesage6: STRING;
+	_sMesage7: STRING;
+	_sMesage8: STRING;
+	_sMesage9: STRING;
+	_sMesage10: STRING;
+	_sMesage11: STRING;
+	_sMesage12: STRING;
+	_sMesage13: STRING;
+	_sMesage14: STRING;
+	_sMesage15: STRING;
+	_sMesage16: STRING;
+	_sMesage17: STRING;
+	_sMesage18: STRING;
+	_sMesage19: STRING;
+	_sMesage20: STRING;
+	_sMesage21: STRING;
+	_sMesage22: STRING;
+	_sMesage23: STRING;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[_sMesage:=CONCAT('Id:',DWORD_TO_STRING(stAxis.stNcTOPLC.nAxisId));
+_sMesage1:=CONCAT('Cmd:',UINT_TO_STRING(stAxis.stPLCTONC.eCommand));
+_sMesage2:=CONCAT('SetVel:',LREAL_TO_STRING(stAxis.stPLCTONC.fTargetVelocity));
+_sMesage3:=CONCAT('Dir:',BOOL_TO_STRING(stAxis.stAxisStatus.bPositiveDirection));
+_sMesage4:=CONCAT('NextDir:',BOOL_TO_STRING(stAxis.stPLCTONC.bRoadDirection));
+_sMesage5:=CONCAT('Ta:',LREAL_TO_STRING(LREAL_TO_DINT(stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fTa*1000)));
+_sMesage6:=CONCAT('Tv:',LREAL_TO_STRING(LREAL_TO_DINT(stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fTv*1000)));
+_sMesage7:=CONCAT('Td:',LREAL_TO_STRING(LREAL_TO_DINT(stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fTd*1000)));
+_sMesage8:=CONCAT('Vs:',LREAL_TO_STRING(stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fStartVelo));
+_sMesage9:=CONCAT('Vt:',LREAL_TO_STRING(stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fExpVelo));
+_sMesage10:=CONCAT('StPos:',LREAL_TO_STRING(stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fStartPos));
+_sMesage11:=CONCAT('EnPos:',LREAL_TO_STRING(stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos));
+_sMesage12:=CONCAT('NCState:',DWORD_TO_STRING(stAxis.stNcTOPLC.nAxisState));
+_sMesage13:=CONCAT('Acc:',DWORD_TO_STRING(LREAL_TO_DINT(stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fAccleration)));
+_sMesage14:=CONCAT('Dec:',DWORD_TO_STRING(LREAL_TO_DINT(stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fDeceleration)));
+_sMesage15:=CONCAT('AcPos:',LREAL_TO_STRING(stAxis.stNcTOPLC.fActPos));
+_sMesage16:=CONCAT('PyAcPos:',LREAL_TO_STRING(stAxis.stCodToNCParam.fActualPos));
+_sMesage17:=CONCAT('Co:',DINT_TO_STRING(stAxis.stAxisStatus.nNcCycleCounter));
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage1);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage2);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage3);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage4);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage5);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage6);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage7);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage8);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage9);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage10);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage11);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage12);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage13);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage14);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage15);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage16);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage17);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,sInfo);
+
+FC_StrContactEX:=_sMesage;]]></ST>
+    </Implementation>
+    <LineIds Name="FC_StrContactEx">
+      <LineId Id="3" Count="54" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

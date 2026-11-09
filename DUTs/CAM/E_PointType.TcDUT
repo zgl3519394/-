@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_PointType" Id="{5a9f2a88-4c97-4e5d-8749-f736d636a191}">
+    <Declaration><![CDATA[{attribute 'qualified_only' := ''}
+{attribute 'strict' := ''}
+TYPE E_PointType :
+(
+	POINTTYPE_XY := 1,
+	POINTTYPE_XYVA := 2
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

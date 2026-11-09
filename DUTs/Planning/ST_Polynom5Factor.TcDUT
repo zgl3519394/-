@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_Polynom5Factor" Id="{88261255-1c8e-4d92-b737-7495bd943038}">
+    <Declaration><![CDATA[TYPE ST_Polynom5Factor :
+STRUCT
+	fA0: LREAL;
+	fA1: LREAL;
+	fA2: LREAL;
+	fA3: LREAL;
+	fA4: LREAL;
+	fA5: LREAL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

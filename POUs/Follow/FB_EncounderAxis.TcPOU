@@ -1,0 +1,103 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_EncounderAxis" Id="{eb0a5b23-0a9a-4699-b05c-4e0ec70e604f}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_EncounderAxis
+VAR_IN_OUT
+	stAxis: ST_Axis;
+END_VAR
+VAR_INPUT
+	bEnable: BOOL;
+	bPeriod: BOOL;
+	fCycleTime: LREAL;
+	fNcCycleTime: LREAL;
+	fPosition: LREAL;
+	fVelocity: LREAL;
+END_VAR
+VAR_OUTPUT
+	bDone: BOOL;
+	bBusy: BOOL;
+	bError: BOOL;
+	nErrorID: UDINT;
+END_VAR
+VAR
+	_nStep: UINT;
+	_nLinePointNum: UINT;
+	_nIndex: UINT;
+	_fDealt_Pos: LREAL;
+	_fSegPos: LREAL;
+	_fLastPosition: LREAL;
+	_aPosition: ARRAY[1..100] OF LREAL;
+	_stPathRef: ST_PathRef;
+	_stPathRefTemp: ST_PathRef;
+	_stNoPathRef: ST_PathRef;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+IF (fNcCycleTime<>0)THEN
+   _nLinePointNum:=LREAL_TO_UINT(fCycleTime/fNcCycleTime);
+ELSE
+	_nLinePointNum:=LREAL_TO_UINT(fCycleTime/0.001);
+END_IF
+
+CASE  _nStep   OF 
+	0:
+	     IF bEnable THEN
+			 _nStep:=10;
+		     _fLastPosition:=fPosition;
+		  
+		 END_IF
+    10:
+	     bError:=FALSE;
+		 bBusy:=TRUE;
+		 stAxis.stPLCTONC.ePlanningMode:=E_PlanningMode.PLANNINGMODE_LINEAR;
+		 nErrorID:=0;
+	     _nStep:=20;
+	
+    20:
+	     IF(_fLastPosition<>fPosition)THEN 
+			 _fDealt_Pos:=fPosition-_fLastPosition;
+			 _fSegPos:=_fDealt_Pos/_nLinePointNum;
+			 
+			 FOR _nIndex:=1 TO _nLinePointNum DO 
+			    _aPosition[_nIndex]:=_fLastPosition+_fSegPos*_nIndex;
+			 
+			 END_FOR 
+		     _fLastPosition:=fPosition;
+			 stAxis.stPLCTONC.bNcEnable:=TRUE;
+		     stAxis.stPLCTONC.bNcStart:=TRUE;
+			 stAxis.stPLCTONC.nLinearPointNum:=_nLinePointNum;
+			  stAxis.stPLCTONC.ePlanningMode:=E_PlanningMode.PLANNINGMODE_LINEAR;
+			  stAxis.stPLCTONC.stEndPosition.fPosition:=fPosition;
+			  stAxis.stPLCTONC.stEndPosition.fVelocity:=fVelocity;
+			  IF (fPosition>=_fLastPosition)THEN
+				  stAxis.stAxisStatus.bPositiveDirection:=TRUE;
+				  stAxis.stAxisStatus.bNegativeDirection:=FALSE;
+			  ELSE
+				  stAxis.stAxisStatus.bPositiveDirection:=FALSE;
+				  stAxis.stAxisStatus.bNegativeDirection:=TRUE;
+			  END_IF
+			  _nStep:=30;
+		 END_IF
+         IF NOT bEnable  THEN 
+			 _nStep:=0;
+			 stAxis.stPLCTONC.bNcEnable:=FALSE;
+		     stAxis.stPLCTONC.bNcStart:=FALSE;
+			 stAxis.stPLCTONC.ePlanningMode:=E_PlanningMode.PLANNINGMODE_NONE;
+			 bBusy:=FALSE;
+		 END_IF
+		// stAxis.stPLCTONC.bNcStart:=FALSE;
+		 
+	30:
+	     _nStep:=20;
+		 stAxis.stPLCTONC.bNcStart:=FALSE;
+		 
+
+END_CASE]]></ST>
+    </Implementation>
+    <LineIds Name="FB_EncounderAxis">
+      <LineId Id="3" Count="59" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

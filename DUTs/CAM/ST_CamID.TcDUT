@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_CamID" Id="{984f09e2-4026-4ecb-b036-617df8b01425}">
+    <Declaration><![CDATA[TYPE ST_CamID :
+STRUCT
+	bPeriodic: BOOL;
+	bMasterAbsolute: BOOL;
+	bSlaveAbsolute: BOOL;
+	nElements: UINT;
+	nPointType: UINT;
+	pPointArry: POINTER TO BYTE;
+	fMasterStartPos: LREAL;
+	fMasterEndPos: LREAL;
+	fSlaveStartPos: LREAL;
+	fSlaveEndPos: LREAL;
+	fMasterMaxVelo: LREAL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

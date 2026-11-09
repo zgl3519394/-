@@ -1,0 +1,69 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_FilterWindow" Id="{0ad563d1-8dd1-40ff-87ff-609685442b8c}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_FilterWindow
+VAR_INPUT
+	nWindowSize: UINT;
+	nLength: UDINT;
+	fData: LREAL;
+END_VAR
+VAR_OUTPUT
+	fOutputData: LREAL;
+END_VAR
+VAR
+	_nIndex: UINT;
+	_nJIndex: UINT;
+	_nIIndex: UINT;
+	_nNum: UDINT;
+	_aRawData: ARRAY[0..nSetSize] OF LREAL;
+	_aDataTemp: ARRAY[0..nSetSize] OF LREAL;
+	_fSum: LREAL;
+END_VAR
+VAR CONSTANT
+	nSetSize: UINT := 10;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+IF (nWindowSize<>0)THEN
+	IF(_nIndex+nWindowSize>nLength)THEN
+		fOutputData:=fData;
+		_nNum:=0;
+		FOR _nIIndex:=0 TO nWindowSize  DO 
+			_aRawData[_nIIndex]:=0;
+		END_FOR
+
+		
+	ELSE
+		_aRawData[_nNum]:=fData;
+		_fSum:=0;
+		FOR _nIIndex:=0 TO (nWindowSize-1)  DO 
+			_fSum:=_aRawData[_nIIndex]+_fSum;
+		END_FOR
+		 fOutputData:=_fSum/nWindowSize;
+		
+		IF (_nNum>=(nWindowSize-1))THEN 
+		  
+		   FOR _nJIndex:=1 TO (nWindowSize-1)  DO 
+			   _aRawData[_nJIndex-1]:=_aRawData[_nJIndex];
+		   END_FOR
+		   
+		ELSE
+		  
+		   _nNum:=_nNum+1;
+		  // fOutputData:=fData;
+		   fOutputData:=_fSum/nWindowSize;
+		    
+		END_IF
+		_nIndex:=_nIndex+1;
+	END_IF
+ELSE
+	fOutputData:=fData;
+END_IF]]></ST>
+    </Implementation>
+    <LineIds Name="FB_FilterWindow">
+      <LineId Id="3" Count="34" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

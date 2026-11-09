@@ -1,0 +1,88 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_MCReset" Id="{27b9a9c3-d3b5-46c2-b8fd-c5c1dd6efc9b}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_MCReset
+VAR_IN_OUT
+	stAxis: ST_Axis;
+END_VAR
+VAR_INPUT
+	bExecute: BOOL;
+END_VAR
+VAR_OUTPUT
+	bDone: BOOL;
+	bBusy: BOOL;
+	bError: BOOL;
+	nErrorID: UDINT;
+END_VAR
+VAR
+	_nStep: INT;
+	_fbTrig: R_TRIG;
+	_fbTon: TON;
+	_fbDoneTon: TON;
+END_VAR
+VAR CONSTANT
+	tcDoneTime: TIME := TIME#100ms;
+	tcWaitTime: TIME := TIME#16m40s0ms;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[_fbTrig(CLK:=bExecute , Q=> );
+IF _fbTrig.Q THEN
+	_nStep:=10;
+END_IF
+CASE _nStep OF
+	0:(* check axis satus*)
+	     IF NOT bExecute  THEN
+			 bDone:=FALSE;
+			 bError:=FALSE;
+			 _fbTon(IN:=FALSE, PT:=tcWaitTime  , Q=> , ET=> );
+		 END_IF
+	     RETURN;
+   10:
+		  bBusy:=TRUE;
+		  bError:=FALSE;
+		  nErrorID:=0;
+		  bDone:=FALSE;
+
+		  _fbTon(IN:=FALSE, PT:=tcWaitTime  , Q=> , ET=> );
+		  _nStep:=20;
+      
+   20:
+		 (******clear axis error********)
+		 stAxis.stAxisStatus.bErrorStop:=FALSE;
+		 stAxis.stAxisStatus.bError:=FALSE;     
+		 stAxis.stAxisStatus.nErrorId:=0;
+		 bBusy:=FALSE;
+		 bDone:=TRUE;
+		 IF NOT bExecute THEN
+		    _nStep:=30; 
+		    _fbDoneTon(IN:=FALSE, PT:=tcDoneTime , Q=> , ET=> );
+		 ELSE
+			 _nStep:=0;
+		 END_IF 
+	   
+   30:
+        _fbDoneTon(IN:=TRUE, PT:=tcDoneTime , Q=> , ET=> );
+        IF _fbDoneTon.Q THEN
+		    bDone:=FALSE;
+		    _fbDoneTon(IN:=FALSE, PT:=tcDoneTime , Q=> , ET=> );
+		    _nStep:=0;
+		   
+	    END_IF
+  
+   
+   100:
+       bBusy:=FALSE;
+	   bError:=TRUE;
+	   stAxis.stAxisStatus.bError:=TRUE;
+	   _nStep:=0;
+	  
+	  
+END_CASE]]></ST>
+    </Implementation>
+    <LineIds Name="FTS_MCReset">
+      <LineId Id="3" Count="51" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

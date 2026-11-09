@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_RoadRef" Id="{efe2a556-d5c1-4929-b705-fbd9b88689f3}">
+    <Declaration><![CDATA[TYPE ST_RoadRef :
+STRUCT
+	nMoverCounter: UINT;
+	fLength: LREAL;
+	pFirstAixs: POINTER TO ST_Axis := null;
+	pLastAixs: POINTER TO ST_Axis := null;
+	aNode: ARRAY[1..GVL_MC.MAX_MOVER] OF ST_Node;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

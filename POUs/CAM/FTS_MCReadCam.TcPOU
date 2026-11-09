@@ -1,0 +1,150 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_MCReadCam" Id="{77c96199-b7e4-4e1f-8540-33f1293e5419}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_MCReadCam
+VAR_INPUT
+	bExecute: BOOL;
+	nMasterID: UINT;
+	nCamTableID: UINT;
+	pCamTables: ARRAY[0..GVL_MC.cMasterNum, 0..GVL_MC.cCAMTableNum] OF ST_CamCollection;
+END_VAR
+VAR_OUTPUT
+	bDone: BOOL;
+	bBusy: BOOL;
+	bError: BOOL;
+	nErrorID: UDINT;
+	stCamTable: ST_CamRef;
+END_VAR
+VAR
+	_bParamError: BOOL := FALSE;
+	_nStep: INT;
+	_nIndex: UINT;
+	_nPointType: UINT;
+	_fPoint: LREAL;
+	_stCamXYVA: ST_CamXYVA;
+	_fbTrig: R_TRIG;
+	_fbDoneTon: TON;
+END_VAR
+VAR CONSTANT
+	tcDoneTime: TIME := TIME#100ms;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[_fbTrig(CLK:=bExecute , Q=> );
+
+IF _fbTrig.Q AND(_nStep=0)THEN
+	_nStep:=10;
+END_IF
+
+CASE _nStep  OF 
+	0:
+	    IF NOT bExecute  THEN
+		   bDone:=FALSE; 
+		   bError:=FALSE;
+		   nErrorID:=0;
+	    END_IF
+	    RETURN ;
+ 
+    10:  
+         bBusy:=TRUE;
+		 bDone:=FALSE;   
+	     bError:=FALSE;
+		 nErrorId:=0;
+	
+	     A_ParamCheck();
+		 _nStep:=_nStep+10;
+	     IF _bParamError  THEN
+			 _nStep:=100;
+			 _bParamError:=FALSE;
+		 END_IF
+	20:
+	    _nPointType:=pCamTables[nMasterID-1,nCamTableID-1].nPointType;
+		stCamTable.nPointType:= _nPointType;
+		stCamTable.nCamTableID:=nCamTableID;
+		stCamTable.nMasterID:=nMasterID;
+		IF (_nPointType=1)THEN 
+	        stCamTable.pPointArry:=ADR(pCamTables[nMasterID-1,nCamTableID-1].astCamXYVA);
+		    stCamTable.fStartPos:=pCamTables[nMasterID-1,nCamTableID-1].fMasterStartPos;
+			stCamTable.fEndPos:=pCamTables[nMasterID-1,nCamTableID-1].fMasterEndPos;
+			stCamTable.nElements:=pCamTables[nMasterID-1,nCamTableID-1].nElements;
+			stCamTable.fMasterMaxVelo:=pCamTables[nMasterID-1,nCamTableID-1].fMasterMaxVelo;
+			IF (stCamTable.nElements=0) THEN 
+				_bParamError:=TRUE;
+				nErrorId:=30406;
+			END_IF
+		ELSIF(_nPointType=2) THEN
+			stCamTable.pPointArry:=ADR(pCamTables[nMasterID-1,nCamTableID-1].stCamXY);
+		    stCamTable.fStartPos:=pCamTables[nMasterID-1,nCamTableID-1].fMasterStartPos;
+			stCamTable.fEndPos:=pCamTables[nMasterID-1,nCamTableID-1].fMasterEndPos;
+			stCamTable.nElements:=pCamTables[nMasterID-1,nCamTableID-1].nElements;
+			stCamTable.fMasterMaxVelo:=pCamTables[nMasterID-1,nCamTableID-1].fMasterMaxVelo;
+			IF (stCamTable.nElements=0) THEN 
+				_bParamError:=TRUE;
+				nErrorId:=30406;
+			END_IF
+		ELSE
+			_bParamError:=TRUE;
+			nErrorId:=30407;
+		END_IF 
+		_nStep:=_nStep+10;
+		IF _bParamError  THEN
+			 _nStep:=100;
+			 _bParamError:=FALSE;
+		END_IF
+				
+	30:
+        bBusy:=FALSE;
+	    bDone:=TRUE; 
+		//_fbDoneTon(IN:=FALSE , PT:= tcDoneTime, Q=> , ET=> );
+	   //_nStep:=_nStep+10;
+	   IF NOT bExecute THEN
+	        _nStep:=_nStep+10;
+	   ELSE
+			_nStep:=0;
+	   END_IF
+   
+    40:
+       // _fbDoneTon(IN:=TRUE , PT:= tcDoneTime, Q=> , ET=> );
+		//IF _fbDoneTon.Q  THEN 
+	        bDone:=FALSE;   
+            _nStep:=0;
+			_fbDoneTon(IN:=FALSE , PT:= tcDoneTime, Q=> , ET=> );
+       // END_IF 
+		
+	
+	100:  // error handle 
+         bBusy:=FALSE;
+		 bDone:=FALSE;   
+	     bError:=TRUE;
+         _nStep:=0;
+	
+END_CASE]]></ST>
+    </Implementation>
+    <Action Name="A_ParamCheck" Id="{64591c20-e847-4e95-94e6-9b2f3cde4bdc}">
+      <Implementation>
+        <ST><![CDATA[//参数校验
+IF (nMasterID>(GVL_MC.cMasterNum+1)) OR (nMasterID<=0) THEN
+	_bParamError:=TRUE;
+    nErrorId:=30404;
+	RETURN ;
+END_IF
+
+IF (nCamTableID>(GVL_MC.cCAMTableNum+1))OR (nCamTableID<=0)THEN
+	_bParamError:=TRUE;
+	 nErrorId:=30405;
+	 return;
+END_IF
+
+]]></ST>
+      </Implementation>
+    </Action>
+    <LineIds Name="FTS_MCReadCam">
+      <LineId Id="3" Count="87" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_MCReadCam.A_ParamCheck">
+      <LineId Id="2" Count="12" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

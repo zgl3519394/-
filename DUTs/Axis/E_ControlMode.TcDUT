@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_ControlMode" Id="{1eb97c21-7c9b-4100-914c-896202ff4791}">
+    <Declaration><![CDATA[{attribute 'qualified_only' := ''}
+{attribute 'strict' := ''}
+TYPE E_ControlMode :
+(
+	CONTROLLER_MODE_UNDEFINED := 0,
+	CONTROLLER_MODE_TORQUE := 1,
+	CONTROLLER_MODE_VELOCITY := 2,
+	CONTROLLER_MODE_POSITION := 3
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

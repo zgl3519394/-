@@ -1,0 +1,40 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FC_PathTimeCalculation" Id="{742b84bb-d161-4580-bf2d-5d3512baa51a}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION FC_PathTimeCalculation : ST_TimeRef
+VAR_INPUT
+	fTargetDdis: LREAL;
+	fMinDis: LREAL;
+	fAcc: LREAL;
+	fVelo_S: LREAL;
+	fVelo_E: LREAL;
+END_VAR
+VAR
+	_fVelo: LREAL;
+	_stTime: ST_TimeRef;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF (fTargetDdis<=fMinDis)THEN
+	_fVelo:=fVelo_S+SQRT(fAcc*fTargetDdis);
+	_stTime.fTa:=(_fVelo-fVelo_S)/fAcc;
+	_stTime.fTv:=0;
+	_stTime.fTd:=(_fVelo-fVelo_E)/fAcc;
+	_stTime.fT3:=_stTime.fTa+_stTime.fTd;
+	
+ELSE
+	_stTime.fTa:=(fVelo_E-fVelo_S)/fAcc;
+	_stTime.fTv:=fTargetDdis/(fVelo_E-fVelo_S)-_stTime.fTa;
+	_stTime.fTd:=_stTime.fTa;
+	_stTime.fT3:=_stTime.fTa+_stTime.fTd+_stTime.fTv;
+
+END_IF
+
+FC_PathTimeCalculation:=_stTime;]]></ST>
+    </Implementation>
+    <LineIds Name="FC_PathTimeCalculation">
+      <LineId Id="3" Count="14" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,51 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_FollowPosition" Id="{b2d7d7d6-ce1f-4aec-bdb8-68787801020f}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_FollowPosition
+VAR_IN_OUT
+	stAxis: ST_Axis;
+END_VAR
+VAR_INPUT
+	bEnable: BOOL;
+	fSetPosition: LREAL;
+	fPosOffset: LREAL;
+	///微米设置为1 ，毫米设置1000
+	fSlaveScaling: LREAL := 1.0;
+	///ms
+	nCycleTime: UDINT := 1;
+END_VAR
+VAR_OUTPUT
+	bBusy: BOOL;
+	bError: BOOL;
+	nErrorID: UDINT;
+END_VAR
+VAR
+	_fCuPosition: LREAL;
+	_fLastPosition: LREAL;
+	///um/s
+	_fVelo: LREAL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF bEnable THEN 
+	_fCuPosition:=fSetPosition*fSlaveScaling+fPosOffset;
+	_fVelo:=1000*ABS(_fCuPosition-_fLastPosition)/nCycleTime;
+	stAxis.stNcTOPLC.fActPos:=_fCuPosition;
+	stAxis.stNcTOPLC.fActVelo:=_fVelo;
+
+    bBusy:=TRUE;
+    bError:=FALSE;
+	nErrorID:=0;
+	_fLastPosition:=fSetPosition;
+ELSE
+	bBusy:=FALSE;
+    bError:=FALSE;
+	nErrorID:=0;
+END_IF]]></ST>
+    </Implementation>
+    <LineIds Name="FTS_FollowPosition">
+      <LineId Id="3" Count="13" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

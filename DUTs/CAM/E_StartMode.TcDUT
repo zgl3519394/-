@@ -1,0 +1,26 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_StartMode" Id="{42ed0846-f7dd-4201-b15f-f819b27fe264}">
+    <Declaration><![CDATA[{attribute 'qualified_only' := ''}
+{attribute 'strict' := ''}
+TYPE E_StartMode :
+(
+	/// cam table is absolute for master and slave 
+	MC_STARTMODE_ABSOLUTE := 1,
+	/// cam table is relative for master and slave 
+	MC_STARTMODE_RELATIVE := 2,
+	/// cam table is absolute for master and relative for slave 
+	MC_STARTMODE_MASTERABS_SLAVEREL := 3,
+	/// cam table is relative for master and absolute for slave 
+	MC_STARTMODE_MASTERREL_SLAVEABS := 4,
+	///正向切坡切入
+	MC_RAMPIN := 5,
+	///正向切坡切入
+	MC_RAMPIN_POS := 6,
+	///反向斜坡切入
+	MC_RAMPIN_NEG := 7
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

@@ -1,0 +1,80 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_AxisStatus" Id="{b333cb5e-a56d-4949-9c79-b178889f91ef}">
+    <Declaration><![CDATA[TYPE ST_AxisStatus :
+STRUCT
+	/// PLCopen motion control statemachine states: 
+	bPower: BOOL;
+	bEnabled: BOOL;
+	bMoving: BOOL;
+	bErrorStop: BOOL;
+	bDisabled: BOOL;
+	bStopping: BOOL;
+	bStandStill: BOOL;
+	bDiscreteMotion: BOOL;
+	bContinuousMotion: BOOL;
+	bSynchronizedMotion: BOOL;
+	bHoming: BOOL;
+	bHomed: BOOL;
+	bSoftPositiveLimit: BOOL;
+	bSoftNegativeLimit: BOOL;
+	bPositiveDirection: BOOL;
+	bNegativeDirection: BOOL;
+	bConstantVelocity: BOOL;
+	bAccelerating: BOOL;
+	bDecelerating: BOOL;
+	bCamPeriodic: BOOL;
+	bCamDataQueued: BOOL;
+	bCamTableQueued: BOOL;
+	bCamAbsolute: BOOL;
+	///防碰撞停止标志
+	bCollisionStoped: BOOL;
+	bSynDecActive: BOOL;
+	///25.01.25
+	bSynStopping: BOOL;
+	/// 25.01.25防碰撞用
+	bStoppingFlag: BOOL;
+	bSlave: BOOL;
+	/// axis error state 
+	bError: BOOL;
+	bEmStopping       :BOOL;  //02.28
+	bArrayReseved1: BOOL;
+	bArrayReseved2: BOOL;
+	//bArrayReseved3: BOOL;
+	///bArrayReseved         :ARRAY  [0..2] OF BOOL;   //05.06
+	nStep: INT;
+	///  nCamPointNum          :UINT;   05.06
+	///nCamPointIndex          :UINT;  //05.06
+	nCollState: WORD;
+	nLastRoadID: UINT;
+	/// PLC cycle counter when this data set updated 
+	nCycleCounter: UDINT;
+	/// NC cycle counter incremented after NC task updated NcToPlc data structures 
+	nNcCycleCounter: UDINT;
+	///02.26  新路径触发不更新为0，原基础继续计数
+	nNcCycleCounter_WP: UDINT;
+	nSyncCounter: UDINT;
+	nSegIndex: UDINT;
+	/// motion state in the PLCopen state diagram 
+	eMotionState: E_MCAxisStates;
+	/// axis error code 
+	nErrorId: UDINT;
+	nCamTableID: UDINT;
+	fSetVelocity: LREAL;
+	///与前任动子初始位置偏差
+	fInitialPos: LREAL;
+	///stPathInfo             :ST_CatchPathInformation;
+	///stStopPath           :ST_PathSegment;  04/30
+	stPathRef: ST_PathRef;
+	pPremover: POINTER TO ST_Axis;
+	pAftermover: POINTER TO ST_Axis;
+	pMaster: POINTER TO ST_Axis;
+	///  02/20
+	pNextRoadPremover: POINTER TO ST_Axis;
+	///03.28  
+	stGroupRef: ST_GroupRef;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

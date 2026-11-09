@@ -1,0 +1,88 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_EncounderAxis_Spy" Id="{43b1f730-432e-46b5-966d-5d64970968e8}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_EncounderAxis_Spy
+VAR_IN_OUT
+	stAxis: ST_Axis;
+END_VAR
+VAR_INPUT
+	bEnable: BOOL;
+	bPeriod: BOOL;
+	bPositive: BOOL;
+	fCycleTime: LREAL;
+	fNcCycleTime: LREAL;
+	fPosition: LREAL;
+	fVelocity: LREAL;
+END_VAR
+VAR_OUTPUT
+	bDone: BOOL;
+	bBusy: BOOL;
+	bError: BOOL;
+	nErrorID: UDINT;
+END_VAR
+VAR
+	_nStep: UINT;
+	_nLinePointNum: UINT;
+	_nIndex: UINT;
+	_fDealt_Pos: LREAL;
+	_fSegPos: LREAL;
+	_fLastPosition: LREAL;
+	_aPosition: ARRAY[1..100] OF LREAL;
+	_stPathRef: ST_PathRef;
+	_stPathRefTemp: ST_PathRef;
+	_stNoPathRef: ST_PathRef;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+IF (fNcCycleTime<>0)THEN
+   _nLinePointNum:=LREAL_TO_UINT(fCycleTime/fNcCycleTime);
+ELSE
+	_nLinePointNum:=LREAL_TO_UINT(fCycleTime/0.001);
+END_IF
+
+CASE  _nStep   OF 
+	0:
+	     IF bEnable THEN
+			 _nStep:=10;
+		     _fLastPosition:=fPosition;
+		  
+		 END_IF
+    10:
+	     bError:=FALSE;
+		 bBusy:=TRUE;
+		 stAxis.stPLCTONC.ePlanningMode:=E_PlanningMode.PLANNINGMODE_LINEAR;
+		 nErrorID:=0;
+	     _nStep:=20;
+	
+    20:
+	     stAxis.stPLCTONC.stEndPosition.fPosition:=fPosition;
+	     stAxis.stPLCTONC.stEndPosition.fVelocity:=fVelocity;
+		 stAxis.stPLCTONC.nLinearPointNum:= _nLinePointNum;
+		 stAxis.stPLCTONC.bNcEnable:=TRUE;
+		 stAxis.stPLCTONC.ePlanningMode:=E_PlanningMode.PLANNINGMODE_LINEAR;
+		 IF bPositive THEN
+			  stAxis.stAxisStatus.bPositiveDirection:=TRUE;
+			  stAxis.stAxisStatus.bNegativeDirection:=FALSE;
+		 ELSE
+			  stAxis.stAxisStatus.bPositiveDirection:=FALSE;
+			  stAxis.stAxisStatus.bNegativeDirection:=TRUE;
+		 END_IF
+		    
+         IF NOT bEnable  THEN 
+			 _nStep:=0;
+			 stAxis.stPLCTONC.bNcEnable:=FALSE;
+			 stAxis.stPLCTONC.ePlanningMode:=E_PlanningMode.PLANNINGMODE_NONE;
+			 bBusy:=FALSE;
+		 END_IF
+		
+
+
+END_CASE]]></ST>
+    </Implementation>
+    <LineIds Name="FB_EncounderAxis_Spy">
+      <LineId Id="3" Count="43" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

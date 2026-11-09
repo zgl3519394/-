@@ -1,0 +1,47 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_DisenbleNodeHandle" Id="{1064dbd7-a02c-466c-937f-1f1790ecc6ce}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_DisenbleNodeHandle
+VAR_IN_OUT
+	aRoadRef: ARRAY[1..GVl_MC.cRoadNum] OF ST_RoadRef;
+	aAxis: ARRAY[1..GVL_MC.MAX_MOVER] OF ST_Axis;
+END_VAR
+VAR_INPUT
+	nSysType: UINT;
+END_VAR
+VAR
+	_nIndex: UINT;
+	fbAxisGroupList: FTS_AxisGroupList;
+END_VAR
+VAR CONSTANT
+	nRoadNum: UINT := 10;
+	nMoverNum: UINT := 20;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// 1,4  接驳  2 直线 3 环形
+IF (nSysType=2)OR (nSysType=3)OR(nSysType=0)THEN 
+	RETURN;
+END_IF
+FOR _nIndex:=1 TO GVL_MC.MAX_MOVER  DO
+	
+	IF (aAxis[_nIndex].stNcTOPLC.nAxisId<>0) AND  aAxis[_nIndex].stAxisStatus.bDisabled THEN 
+	
+			   IF (aAxis[_nIndex].stAxisStatus.nLastRoadID<>0) THEN
+				   IF (aAxis[_nIndex].stAxisStatus.nLastRoadID<>aAxis[_nIndex].stNcTOPLC.nCuRoadID)THEN 
+						 fbAxisGroupList.M_InsertNode(aRoadRef:=aRoadRef , nSysType:=aAxis[_nIndex].stAxisParam.stRoadParam.nSysType , nRoadId:=aAxis[_nIndex].stNcTOPLC.nCuRoadID , pAixs:=ADR(aAxis[_nIndex]) );
+						 fbAxisGroupList.M_DeleteNode(aRoadRef:=aRoadRef , nSysType:=aAxis[_nIndex].stAxisParam.stRoadParam.nSysType , nRoadId:=aAxis[_nIndex].stAxisStatus.nLastRoadID , pAixs:=ADR(aAxis[_nIndex]));
+						 aAxis[_nIndex].stAxisStatus.nLastRoadID:=aAxis[_nIndex].stNcTOPLC.nCuRoadID;
+				   END_IF
+			   END_IF 
+	END_IF
+	
+
+END_FOR]]></ST>
+    </Implementation>
+    <LineIds Name="FTS_DisenbleNodeHandle">
+      <LineId Id="3" Count="17" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

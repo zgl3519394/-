@@ -1,0 +1,32 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_SParam" Id="{e6e5172e-7b62-4049-a8ed-aa303f1522db}">
+    <Declaration><![CDATA[TYPE ST_SParam :
+STRUCT
+	///加速段加加速时长
+	fTj1: LREAL;
+	///减速段加加速度时长
+	fTj2: LREAL;
+	fTa: LREAL;
+	fTd: LREAL;
+	fTv: LREAL;
+	fT: LREAL;
+	fQ_0: LREAL;
+	fQ_1: LREAL;
+	fV_0: LREAL;
+	fV_1: LREAL;
+	///运行时最大速度
+	fVlim: LREAL;
+	fAmax: LREAL;
+	fAmin: LREAL;
+	///运行时加速段最大加速度
+	fA_LimAcc: LREAL;
+	///运行时减速段最大加速度
+	fA_LimDec: LREAL;
+	fJmax: LREAL;
+	fJmin: LREAL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

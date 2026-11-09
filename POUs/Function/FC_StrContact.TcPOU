@@ -1,0 +1,106 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FC_StrContact" Id="{127464eb-a4c8-4c76-bb0c-c5b1687ffa1c}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION FC_StrContact : STRING(1024)
+VAR_INPUT
+	stAxis: ST_Axis;
+	sInfo: STRING;
+END_VAR
+VAR
+	_sMesage: STRING(1024);
+	_sMesage1: STRING;
+	_sMesage2: STRING;
+	_sMesage3: STRING;
+	_sMesage4: STRING;
+	_sMesage5: STRING;
+	_sMesage6: STRING;
+	_sMesage7: STRING;
+	_sMesage8: STRING;
+	_sMesage9: STRING;
+	_sMesage10: STRING;
+	_sMesage11: STRING;
+	_sMesage12: STRING;
+	_sMesage13: STRING;
+	_sMesage14: STRING;
+	_sMesage15: STRING;
+	_sMesage16: STRING;
+	_sMesage17: STRING;
+	_sMesage18: STRING;
+	_sMesage19: STRING;
+	_sMesage20: STRING;
+	_sMesage21: STRING;
+	_sMesage22: STRING;
+	_sMesage23: STRING;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[_sMesage:=CONCAT('Id:',DWORD_TO_STRING(stAxis.stNcTOPLC.nAxisId));
+_sMesage1:=CONCAT('Cmd:',UINT_TO_STRING(stAxis.stPLCTONC.eCommand));
+_sMesage2:=CONCAT('StartPos:',LREAL_TO_STRING(stAxis.stPLCTONC.stStartPosition.fPosition));
+_sMesage3:=CONCAT('StartPos_Roadid:',UINT_TO_STRING(stAxis.stPLCTONC.stStartPosition.nRoadID));
+_sMesage4:=CONCAT('EndPos:',LREAL_TO_STRING(stAxis.stPLCTONC.stEndPosition.fPosition));
+_sMesage5:=CONCAT('EndPos_Roadid:',UINT_TO_STRING(stAxis.stPLCTONC.stEndPosition.nRoadID));
+_sMesage6:=CONCAT('Cu_Roadid:',UINT_TO_STRING(stAxis.stNcTOPLC.nCuRoadID));
+_sMesage7:=CONCAT('Tarpos:',LREAL_TO_STRING(stAxis.stPLCTONC.fTargetPos));
+
+_sMesage8:=CONCAT('MoState:',DWORD_TO_STRING(stAxis.stAxisStatus.eMotionState));
+_sMesage9:=CONCAT('En:',BOOL_TO_STRING(stAxis.stPLCTONC.bNcEnable));
+_sMesage10:=CONCAT('Cter:',DINT_TO_STRING(stAxis.stAxisStatus.nNcCycleCounter));
+IF (stAxis.stAxisStatus.pPremover<>0)THEN 
+  _sMesage11:=CONCAT('Pre:',DWORD_TO_STRING(stAxis.stAxisStatus.pPremover^.stNcTOPLC.nAxisId));
+ELSE
+	_sMesage11:='Pre:no';
+END_IF
+IF (stAxis.stAxisStatus.pAftermover<>0)THEN 
+  _sMesage12:=CONCAT('After:',DWORD_TO_STRING(stAxis.stAxisStatus.pAftermover^.stNcTOPLC.nAxisId));
+ELSE
+	_sMesage12:='After:no';
+END_IF
+IF (stAxis.stAxisStatus.pNextRoadPremover<>0)THEN 
+  _sMesage13:=CONCAT('Nextpre:',DWORD_TO_STRING(stAxis.stAxisStatus.pNextRoadPremover^.stNcTOPLC.nAxisId));
+ELSE
+	_sMesage13:='Nextpre:no';
+END_IF
+_sMesage14:=CONCAT('SetVe:',LREAL_TO_STRING(stAxis.stPLCTONC.fSetVelocity));
+//_sMesage14:=CONCAT('ToCmd:',BOOL_TO_STRING(stAxis.stCodToNCParam.bTroqueCmd));
+//_sMesage15:=CONCAT('SetVe:',LREAL_TO_STRING(stAxis.stPLCTONC.fSetVelocity));
+//_sMesage16:=CONCAT('IsSnPos:',BOOL_TO_STRING(stAxis.stPLCTONC.bIsSynPos));
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage1);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage2);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage3);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage4);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage5);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage6);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage7);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage8);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage9);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage10);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage11);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage12);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage13);
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,_sMesage14);
+
+_sMesage:=CONCAT(_sMesage,',');
+_sMesage:=CONCAT(_sMesage,sInfo);
+FC_StrContact:=_sMesage;]]></ST>
+    </Implementation>
+    <LineIds Name="FC_StrContact">
+      <LineId Id="3" Count="61" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

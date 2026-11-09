@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_TimeRef" Id="{399b2972-a9f0-4c21-b85e-1be4a6268c4b}">
+    <Declaration><![CDATA[TYPE ST_TimeRef :
+STRUCT
+	fTa: LREAL;
+	fTv: LREAL;
+	fTd: LREAL;
+	fT1: LREAL;
+	fT2: LREAL;
+	fT3: LREAL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

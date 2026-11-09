@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_PathType" Id="{f061cb84-3ab8-4efb-9227-00913f0cdf48}">
+    <Declaration><![CDATA[{attribute 'qualified_only' := ''}
+{attribute 'strict' := ''}
+TYPE E_PathType :
+(
+	PATH_SEGMENT := 0,
+	/// 1: polynom with order 1 
+	PATH_POINTS := 1
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

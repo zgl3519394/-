@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_Node" Id="{80eb2b5e-3aae-4806-b66a-875c102b1961}">
+    <Declaration><![CDATA[TYPE ST_Node :
+STRUCT
+	/// Axis ID 
+	nAxisId: DWORD;
+	pMover: POINTER TO ST_Axis := null;
+	pPremover: POINTER TO ST_Axis := null;
+	pAftermover: POINTER TO ST_Axis := null;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

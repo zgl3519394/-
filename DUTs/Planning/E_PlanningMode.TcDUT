@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_PlanningMode" Id="{d44f7f23-d3bb-46e4-9780-5c73e65aed1a}">
+    <Declaration><![CDATA[{attribute 'qualified_only' := ''}
+{attribute 'strict' := ''}
+TYPE E_PlanningMode :
+(
+	PLANNINGMODE_NONE := 0,
+	PLANNINGMODE_TSHAPED := 1,
+	PLANNINGMODE_SSHAPED := 2,
+	PLANNINGMODE_LINEAR := 3,
+	/// 1: polynom with order 1 
+	PLANNINGMODE_CAM := 10,
+	/// 1: polynom with order 1 
+	PLANNINGMODE_PLOYNOM3 := 11,
+	/// 1: polynom with order 1 
+	PLANNINGMODE_PLOYNOM5 := 12,
+	/// 1: polynom with order 1 
+	PLANNINGMODE_FOLLOW := 19,
+	PLANNINGMODE_FOLLOWMASTER := 20
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

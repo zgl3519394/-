@@ -1,0 +1,51 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <GVL Name="GVL_MC" Id="{5060a441-d223-4282-8bb1-fe41c4ac0be5}">
+    <Declaration><![CDATA[VAR_GLOBAL
+	cDebug: BOOL := FALSE;       //10.22
+	bDebugDecAcc  :BOOL:=FALSE;
+	//bArrayReseved1: BOOL;
+	bEmStop       :BOOL:=FALSE;
+	bEmStopVMode  :BOOL:=FALSE;   //07.13  0 规划速度   1 实际速度
+	
+	bArrayReseved2: BOOL;
+	bArrayReseved3: BOOL;
+	bArrayReseved4: BOOL;
+	bArrayReseved5: BOOL;
+	bArrayReseved6: BOOL;
+	bArrayReseved7: BOOL;
+	bArrayReseved8: BOOL;
+	bArrayReseved9: BOOL;
+	bArrayReseved10: BOOL;
+	bArrayReseved11: BOOL;
+	bArrayReseved12: BOOL;
+	bArrayReseved13: BOOL;
+	//bArrayReseved14: BOOL;
+	nMaxDecRatio     :UINT:=3;
+	nFollowError     :UDINT:=50000;  //单位um
+	nMecReserveDis   :UDINT:=10000;  //单位um
+	stCamTable: ST_CamRef;
+	stCamTableID: ST_CamID;
+	aCAMTables: ARRAY[0..cMasterNum, 0..cCAMTableNum] OF ST_CamCollection;
+	aMover: ARRAY[1..MAX_MOVER] OF ST_Mover;
+	///04.21
+	aRoadRef: ARRAY[1..cRoadNum] OF ST_RoadRef;
+	aGroupRef: ARRAY[1..cGroupNum] OF ST_GroupRef;
+END_VAR
+
+VAR_GLOBAL CONSTANT
+	rNcCycle: REAL := 0.004;	// 磁驱动子插补时间
+	rExNcCycle: REAL := 0.004;   // 外部DD马达插补时间
+	//cDebug: BOOL := TRUE;
+	cCAMTableNum: UINT := 4;
+	cMasterNum: UINT := 1;
+	///虚拟动子的数目
+	MAX_MOVER: UINT := 250;
+	///成组数量
+	cGroupNum: UINT := 20;
+	cRoadNum: UINT := 40;
+END_VAR
+
+]]></Declaration>
+  </GVL>
+</TcPlcObject>

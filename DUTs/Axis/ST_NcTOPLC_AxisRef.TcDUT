@@ -1,0 +1,54 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_NcTOPLC_AxisRef" Id="{ae055c16-9279-41cc-b7d8-cc07771684d6}">
+    <Declaration><![CDATA[TYPE ST_NcTOPLC_AxisRef :
+STRUCT
+	nCuRoadID: UINT;
+	nCuSegIndex: UINT;
+	/// Status double word 
+	nStateDWord: DWORD;
+	/// Axis error code 
+	nErrorCode: DWORD;
+	/// Axis moving status 
+	nAxisState: DWORD;
+	/// Axis mode confirmation (feedback from NC) 
+	nAxisModeConfirmation: DWORD;
+	/// State of axis calibration (homing) 
+	nHomingState: DWORD;
+	/// Axis coupling state 
+	nCoupleState: DWORD;
+	/// Axis ID 
+	nAxisId: DWORD;
+	/// Current operation mode 
+	nOpModeDWord: DWORD;
+	/// Actual position (absolut value from NC) 
+	fActPos: LREAL;
+	/// Actual velocity 
+	fActVelo: LREAL;
+	/// Position difference (lag distance) 
+	fPosDiff: LREAL;
+	/// Setpoint position 
+	fSetPos: LREAL;
+	/// Setpoint velocity 
+	fSetVelo: LREAL;
+	/// Setpoint acceleration 
+	fSetAcc: LREAL;
+	/// Estimated target position 
+	fTargetPos: LREAL;
+	fSetJerk: LREAL;
+	fSetTorque: LREAL;
+	fActTorque: LREAL;
+	/// Setpoint modulo position 
+	fModuloSetPos: LREAL;
+	/// Setpoint modulo turns 
+	nModuloSetTurns: DINT;
+	fModuloFactor: LREAL := 5000000.0;
+	fDealtPos: LREAL;
+	///02.12
+	fActPosLastRoad: LREAL;
+	
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

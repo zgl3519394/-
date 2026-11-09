@@ -1,0 +1,26 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_MotionPointType" Id="{896f8fac-f6bd-4ca0-be32-2ce2835d318e}">
+    <Declaration><![CDATA[{attribute 'qualified_only' := ''}
+{attribute 'strict' := ''}
+TYPE E_MotionPointType :
+(
+	/// Ignore point 
+	MOTIONPOINTTYPE_IGNORE,
+	/// Restpoint – Rastpunkt 
+	MOTIONPOINTTYPE_REST := 16#1,
+	/// Velocity Point - Geschwindigkeitspunkt 
+	MOTIONPOINTTYPE_VELOCITY := 16#2,
+	/// Turn Point - Umkehrpunkt 
+	MOTIONPOINTTYPE_TURN := 16#4,
+	/// Motion Point - Bewegungspunkt 
+	MOTIONPOINTTYPE_MOTION := 16#8,
+	/// Addieren von Segmenten 
+	MOTIONPOINTTYPE_ADD := 16#F00,
+	/// 1: activation point 
+	MOTIONPOINTTYPE_ACTIVATION := 16#2000
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

@@ -1,0 +1,131 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_DeleteAxisGroup" Id="{757d564c-7e11-4f91-8f65-52d22d79bf5a}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_DeleteAxisGroup
+VAR_IN_OUT
+	stAxis: ST_Axis;
+END_VAR
+VAR_INPUT
+	bExecute: BOOL;
+	nGroupId: UINT;
+END_VAR
+VAR_OUTPUT
+	bDone: BOOL;
+	bBusy: BOOL;
+	bError: BOOL;
+	nErrorID: UDINT;
+END_VAR
+VAR
+	_bParamError: BOOL := FALSE;
+	_nStep: INT;
+	_nIndex: UINT;
+	_nSubIndex: UINT;
+	_eGroupType: E_GroupType;
+	_stGroupRefNo: ST_GroupRef;
+	_fbTrig: R_TRIG;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[_fbTrig(CLK:=bExecute , Q=> );
+IF _fbTrig.Q AND (_nStep=0) THEN
+	_nStep:=10;
+
+END_IF
+
+CASE _nStep  OF 
+	0:
+	   IF NOT bExecute THEN
+			 bDone:=FALSE;
+			 bError:=FALSE;
+			 nErrorID:=0;
+		END_IF
+	    RETURN;
+
+    10:
+	    bBusy:=TRUE;
+	    bError:=FALSE;
+	    nErrorID:=0;
+	    bDone:=FALSE;
+		A_ParamCheck();
+	    _nStep:=_nStep+10;
+		IF _bParamError  THEN 
+			 _nStep:= 100;
+			 _bParamError:=FALSE;
+		END_IF
+	   
+	20:
+	    IF (GVL_MC.aGroupRef[nGroupId].nCount>=2 )THEN
+			// 查找ID 
+			FOR _nIndex:=1 TO GVL_MC.MAX_MOVER   DO
+				IF (GVL_MC.aGroupRef[nGroupId].aAxisId[_nIndex].nAxisId=stAxis.stNcTOPLC.nAxisId)THEN
+					GVL_MC.aGroupRef[nGroupId].aAxisId[_nIndex].nAxisId:=0;
+					GVL_MC.aGroupRef[nGroupId].aAxisId[_nIndex].eGroupType:=E_GroupType.GROUPTYPE_NONE;;
+					GVL_MC.aGroupRef[nGroupId].nCount:=GVL_MC.aGroupRef[nGroupId].nCount-1;
+					FOR _nSubIndex:=_nIndex TO (GVL_MC.MAX_MOVER-1) BY 1  DO
+						GVL_MC.aGroupRef[nGroupId].aAxisId[_nSubIndex]:=GVL_MC.aGroupRef[nGroupId].aAxisId[_nSubIndex+1];
+						IF (_nSubIndex=(GVL_MC.MAX_MOVER-1))THEN
+							GVL_MC.aGroupRef[nGroupId].aAxisId[_nSubIndex+1].nAxisId:=0;
+						END_IF
+					END_FOR
+					EXIT;
+				END_IF
+			END_FOR
+		ELSE
+			GVL_MC.aGroupRef[nGroupId].nCount:=0;
+			GVL_MC.aGroupRef[nGroupId].aAxisId[1].nAxisId:=0;
+			GVL_MC.aGroupRef[nGroupId].aAxisId[1].eGroupType:=E_GroupType.GROUPTYPE_NONE;;
+			GVL_MC.aGroupRef[nGroupId].nGroupId:=0;
+			GVL_MC.aGroupRef[nGroupId].eGroupType:=E_GroupType.GROUPTYPE_NONE;
+			
+		END_IF
+		stAxis.stAxisStatus.stGroupRef:=_stGroupRefNo;
+		bBusy:=FALSE;
+		bDone:=TRUE;
+		IF NOT bExecute THEN
+            _nStep:=_nStep+10;
+        ELSE
+            _nStep:=0;
+        END_IF  
+		
+    30:
+		bDone:=FALSE;
+	    _nStep:=0;
+	
+   100: (************error handle***********)
+         bBusy:=FALSE;
+	     bError:=TRUE;
+	     bDone:=FALSE;
+		 _nStep:=0;
+
+
+
+END_CASE]]></ST>
+    </Implementation>
+    <Action Name="A_ParamCheck" Id="{20d4568c-83d8-4b80-bc18-d4022a8a737b}">
+      <Implementation>
+        <ST><![CDATA[IF (stAxis.stNcTOPLC.nAxisId=0)THEN
+	_bParamError:=TRUE;
+    nErrorID:=30806;
+    RETURN;
+END_IF
+
+IF (nGroupId<=0)OR (nGroupId>GVL_MC.cGroupNum)  THEN
+	_bParamError:=TRUE;
+    nErrorID:=30807;
+    RETURN;
+END_IF
+
+
+]]></ST>
+      </Implementation>
+    </Action>
+    <LineIds Name="FTS_DeleteAxisGroup">
+      <LineId Id="3" Count="72" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_DeleteAxisGroup.A_ParamCheck">
+      <LineId Id="2" Count="12" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

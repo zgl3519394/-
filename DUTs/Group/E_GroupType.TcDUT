@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_GroupType" Id="{2f21d245-2135-4a77-894e-adb165acaaf8}">
+    <Declaration><![CDATA[{attribute 'qualified_only' := ''}
+{attribute 'strict' := ''}
+TYPE E_GroupType :
+(
+	GROUPTYPE_NONE := 0,
+	///一个出力
+	GROUPTYPE_ONEFORCE := 1,
+	///共同出力
+	GROUPTYPE_ALLFORCE := 2
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

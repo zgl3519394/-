@@ -1,0 +1,1347 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_AxisGroupList" Id="{dacc3763-e873-496d-84e8-519a55f15b3e}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_AxisGroupList
+VAR_IN_OUT
+	aRoadRef: ARRAY[1..GVL_MC.cRoadNum] OF ST_RoadRef;
+	aAxis: ARRAY[1..GVL_MC.MAX_MOVER] OF ST_Axis;
+END_VAR
+VAR_INPUT
+	bExecute: BOOL;
+	///road 路径
+	sJsonPath: STRING;
+END_VAR
+VAR_OUTPUT
+	bDone: BOOL;
+	bBusy: BOOL;
+	bError: BOOL;
+	nErrorID: UDINT;
+	hrErrorCode: HRESULT;
+END_VAR
+VAR
+	_bLoaded: BOOL;
+	_bLoad: BOOL;
+	_bHasMember: BOOL;
+	_bSameCount: BOOL := FALSE;
+	_bRoadNumErr:bool:=false;
+	_nCount: UINT;
+	_nRoadNum: UINT;
+	_nMoverNum: UINT;
+	_nIndex: UINT;
+	_nSubIndex: UINT;
+	_nIndex_i: UINT;
+	_nIndex_j: UINT;
+	_nSysType: UINT;
+	_nStep: INT;
+	_nArraySize: UINT;
+	_nRoadID: UINT;
+	_fRoadLenth: REAL;
+	_aRoadCount: ARRAY[1..GVL_MC.cRoadNum] OF UINT;
+	///_aRoad: ARRAY[1..GVL_MC.cRoadNum] OF ST_Road;
+	_sJsonRoot: SJsonValue;
+	_sJsonProp: SJsonValue;
+	_sJsonSubRoot: SJsonValue;
+	_pJsonValue: Tc3_JsonXml.PVOID;
+	_fbTrig: R_TRIG;
+	_fbJson: FB_JsonDomParser;
+	_stAxis: ST_Axis;
+	///_aAxisGroup: ARRAY[1..GVL_MC.cRoadNum] OF ST_AxisGroup;
+	_fbDoneTon: TON;
+END_VAR
+VAR CONSTANT
+	///nGroupNum: UINT := 8;
+	tcDoneTime: TIME := TIME#100ms;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// 位置从小到大排列
+//A_Init();]]></ST>
+    </Implementation>
+    <Method Name="M_AddNode" Id="{be6933c8-f459-48d2-af9f-db2f353d51d1}">
+      <Declaration><![CDATA[METHOD M_AddNode : BOOL
+VAR_IN_OUT
+	///aRoadRef     :ARRAY[1..nRoadNum] OF ST_RoadRef;
+	aRoadRef: ARRAY[1..GVL_MC.cRoadNum] OF ST_RoadRef;
+END_VAR
+VAR_INPUT
+	///bHeadNode    :BOOL;          //头节点，位置最大节点
+	nRoadId: UINT;
+	pAixs: POINTER TO ST_Axis := null;
+END_VAR
+VAR
+	///04.18
+	_bFlag: BOOL;
+	_nPos:  UINT;   //07.03   1 road没动子   2 road 头  3 road尾 4 中间
+	_nAxisId:DWORD;
+	_nIndex: UINT;
+	_nSubIndex: UINT;
+	_nMoverCounter: UINT;
+	_stNode: ST_Node;
+	_sMessage: STRING;
+	_sMessage1: STRING;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[M_AddNode:=FALSE;
+IF (nRoadId<=0)OR (nRoadId>GVl_MC.cRoadNum)THEN 
+	RETURN;
+END_IF
+
+IF (nRoadId<>pAixs^.stNcTOPLC.nCuRoadID)THEN 
+	RETURN;
+END_IF
+// 07.03
+_nPos:=0;
+_nAxisId:=0; 
+_sMessage1:='';
+_sMessage:='';
+
+_nMoverCounter:=aRoadRef[nRoadId].nMoverCounter;
+
+// 06.16 增加前后置清除
+(*pAixs^.stAxisStatus.pPremover:=null;
+pAixs^.stAxisStatus.pAftermover:=null;
+pAixs^.stAxisStatus.pNextRoadPremover:=null;*)   // 07.01注释
+
+IF (aRoadRef[nRoadId].nMoverCounter=0)THEN 
+    aRoadRef[nRoadId].aNode[1].pMover:=pAixs;
+	aRoadRef[nRoadId].aNode[1].pPremover:=null;
+	aRoadRef[nRoadId].aNode[1].pAftermover:=null;
+	aRoadRef[nRoadId].aNode[1].nAxisId:=pAixs^.stNcTOPLC.nAxisId;
+	aRoadRef[nRoadId].nMoverCounter:=aRoadRef[nRoadId].nMoverCounter+1;
+    pAixs^.stNcTOPLC.fModuloFactor:=aRoadRef[nRoadId].fLength;
+	aRoadRef[nRoadId].pLastAixs:=pAixs;
+	aRoadRef[nRoadId].pFirstAixs:=pAixs;
+	// 增加前置后置同步更新  07.11
+	aRoadRef[nRoadId].aNode[1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[1].pPremover;
+	aRoadRef[nRoadId].aNode[1].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[1].pAftermover;
+	_nPos:=1;
+ELSE
+	
+   // IF (pAixs^.stNcTOPLC.fActPos<aRoadRef[nRoadId].aNode[1].pMover^.stNcTOPLC.fActPos) THEN  //尾部插入节点
+   IF ((pAixs^.stNcTOPLC.fActPos<aRoadRef[nRoadId].aNode[1].pMover^.stNcTOPLC.fActPos) AND (pAixs^.stNcTOPLC.nCuRoadID=aRoadRef[nRoadId].aNode[1].pMover^.stNcTOPLC.nCuRoadID)) 
+       OR((pAixs^.stNcTOPLC.fActPos<aRoadRef[nRoadId].aNode[1].pMover^.stNcTOPLC.fActPosLastRoad) AND (pAixs^.stNcTOPLC.nCuRoadID<>aRoadRef[nRoadId].aNode[1].pMover^.stNcTOPLC.nCuRoadID))THEN  //尾部插入节点
+		_bFlag:=FALSE;
+		FOR _nIndex:=1 TO _nMoverCounter BY 1  DO
+		   IF (aRoadRef[nRoadId].aNode[_nIndex].nAxisId=pAixs^.stNcTOPLC.nAxisId)THEN
+			   _bFlag:=TRUE;
+			    EXIT;
+		   END_IF
+		END_FOR
+		IF _bFlag THEN 
+			RETURN;
+		END_IF
+		// 07.01 复位前置和后置
+		pAixs^.stAxisStatus.pPremover:=null;
+        pAixs^.stAxisStatus.pAftermover:=null;
+        pAixs^.stAxisStatus.pNextRoadPremover:=null;
+		// 07.01 
+		_nPos:=2;  //07.03
+		_nAxisId:=aRoadRef[nRoadId].aNode[1].pMover^.stNcTOPLC.nAxisId;   // 07.03
+		
+		FOR _nIndex:=_nMoverCounter TO 1 BY -1  DO
+		   aRoadRef[nRoadId].aNode[_nIndex+1]:=aRoadRef[nRoadId].aNode[_nIndex];
+		   
+		END_FOR
+		aRoadRef[nRoadId].aNode[1].nAxisId:=pAixs^.stNcTOPLC.nAxisId;
+		aRoadRef[nRoadId].aNode[1].pAftermover:=null;
+		aRoadRef[nRoadId].aNode[1].pPremover:=aRoadRef[nRoadId].aNode[2].pMover;
+		aRoadRef[nRoadId].aNode[1].pMover:=pAixs;
+		aRoadRef[nRoadId].aNode[2].pAftermover:=pAixs;
+		aRoadRef[nRoadId].pLastAixs:=pAixs;
+		aRoadRef[nRoadId].nMoverCounter:=aRoadRef[nRoadId].nMoverCounter+1;
+		pAixs^.stNcTOPLC.fModuloFactor:=aRoadRef[nRoadId].fLength;
+		
+		// 增加前置后置同步更新  07.11
+	    aRoadRef[nRoadId].aNode[1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[1].pPremover;
+	    aRoadRef[nRoadId].aNode[1].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[1].pAftermover;
+	    aRoadRef[nRoadId].aNode[2].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[2].pAftermover;
+		
+	//ELSIF (pAixs^.stNcTOPLC.fActPos>aRoadRef[nRoadId].aNode[_nMoverCounter].pMover^.stNcTOPLC.fActPos)THEN
+	ELSIF ((pAixs^.stNcTOPLC.fActPos>aRoadRef[nRoadId].aNode[_nMoverCounter].pMover^.stNcTOPLC.fActPos) AND (pAixs^.stNcTOPLC.nCuRoadID=aRoadRef[nRoadId].aNode[_nMoverCounter].pMover^.stNcTOPLC.nCuRoadID)) 
+       OR((pAixs^.stNcTOPLC.fActPos>aRoadRef[nRoadId].aNode[_nMoverCounter].pMover^.stNcTOPLC.fActPosLastRoad) AND (pAixs^.stNcTOPLC.nCuRoadID<>aRoadRef[nRoadId].aNode[_nMoverCounter].pMover^.stNcTOPLC.nCuRoadID))THEN	
+		_bFlag:=FALSE;
+		FOR _nIndex:=1 TO _nMoverCounter BY 1  DO
+		   IF (aRoadRef[nRoadId].aNode[_nIndex].nAxisId=pAixs^.stNcTOPLC.nAxisId)THEN
+			   _bFlag:=TRUE;
+			    EXIT;
+		   END_IF
+		END_FOR
+		IF _bFlag THEN 
+			RETURN;
+		END_IF
+		// 07.01 复位前置和后置
+		pAixs^.stAxisStatus.pPremover:=null;
+        pAixs^.stAxisStatus.pAftermover:=null;
+        pAixs^.stAxisStatus.pNextRoadPremover:=null;
+		// 07.01 
+		_nPos:=3;  //07.03
+		_nAxisId:=aRoadRef[nRoadId].aNode[_nMoverCounter].pMover^.stNcTOPLC.nAxisId;   // 07.03
+		// 04.18
+		aRoadRef[nRoadId].aNode[_nMoverCounter+1].nAxisId:=pAixs^.stNcTOPLC.nAxisId;
+		aRoadRef[nRoadId].aNode[_nMoverCounter+1].pAftermover:=aRoadRef[nRoadId].pFirstAixs;
+		aRoadRef[nRoadId].aNode[_nMoverCounter+1].pPremover:=null;
+		aRoadRef[nRoadId].aNode[_nMoverCounter+1].pMover:=pAixs;
+		aRoadRef[nRoadId].pFirstAixs:=pAixs;
+		aRoadRef[nRoadId].aNode[_nMoverCounter].pPremover:=pAixs;
+		
+		// 增加前置后置同步更新  07.11
+	    aRoadRef[nRoadId].aNode[_nMoverCounter+1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nMoverCounter+1].pPremover;
+	    aRoadRef[nRoadId].aNode[_nMoverCounter+1].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[_nMoverCounter+1].pAftermover;
+	    aRoadRef[nRoadId].aNode[_nMoverCounter].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nMoverCounter].pPremover;
+		// 	
+		aRoadRef[nRoadId].nMoverCounter:=aRoadRef[nRoadId].nMoverCounter+1;
+		pAixs^.stNcTOPLC.fModuloFactor:=aRoadRef[nRoadId].fLength;
+		
+	ELSE                //中间插入节点
+		_bFlag:=FALSE;
+		FOR _nIndex:=1 TO _nMoverCounter BY 1  DO
+		   IF (aRoadRef[nRoadId].aNode[_nIndex].nAxisId=pAixs^.stNcTOPLC.nAxisId)THEN
+			   _bFlag:=TRUE;
+			    EXIT;
+		   END_IF
+		END_FOR
+		IF _bFlag THEN 
+			RETURN;
+		END_IF
+		// 07.01 复位前置和后置
+		pAixs^.stAxisStatus.pPremover:=null;
+        pAixs^.stAxisStatus.pAftermover:=null;
+        pAixs^.stAxisStatus.pNextRoadPremover:=null;
+		// 07.01 
+		_nPos:=4;  //07.03
+		
+		FOR _nIndex:=1 TO (_nMoverCounter-1)  DO
+			_sMessage1:=CONCAT(_sMessage1,DWORD_TO_STRING(aRoadRef[nRoadId].aNode[_nIndex].pMover^.stNcTOPLC.nAxisId));  //07.03
+			_sMessage1:=CONCAT(_sMessage1,',');  //07.03
+			
+			IF ((pAixs^.stNcTOPLC.nCuRoadID=aRoadRef[nRoadId].aNode[_nIndex].pMover^.stNcTOPLC.nCuRoadID)AND(pAixs^.stNcTOPLC.nCuRoadID=aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stNcTOPLC.nCuRoadID) AND
+			    (pAixs^.stNcTOPLC.fActPos>aRoadRef[nRoadId].aNode[_nIndex].pMover^.stNcTOPLC.fActPos) AND (pAixs^.stNcTOPLC.fActPos<aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stNcTOPLC.fActPos))
+                OR ((pAixs^.stNcTOPLC.nCuRoadID<>aRoadRef[nRoadId].aNode[_nIndex].pMover^.stNcTOPLC.nCuRoadID)AND(pAixs^.stNcTOPLC.nCuRoadID=aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stNcTOPLC.nCuRoadID) AND
+			    (pAixs^.stNcTOPLC.fActPos>aRoadRef[nRoadId].aNode[_nIndex].pMover^.stNcTOPLC.fActPosLastRoad) AND (pAixs^.stNcTOPLC.fActPos<aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stNcTOPLC.fActPos))
+				OR ((pAixs^.stNcTOPLC.nCuRoadID=aRoadRef[nRoadId].aNode[_nIndex].pMover^.stNcTOPLC.nCuRoadID)AND(pAixs^.stNcTOPLC.nCuRoadID<>aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stNcTOPLC.nCuRoadID) AND
+			    (pAixs^.stNcTOPLC.fActPos>aRoadRef[nRoadId].aNode[_nIndex].pMover^.stNcTOPLC.fActPos) AND (pAixs^.stNcTOPLC.fActPos<aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stNcTOPLC.fActPosLastRoad)) THEN
+				
+			//IF (pAixs^.stNcTOPLC.fActPos>aRoadRef[nRoadId].aNode[_nIndex].pMover^.stNcTOPLC.fActPos) AND (pAixs^.stNcTOPLC.fActPos<aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stNcTOPLC.fActPos) THEN 
+				 aRoadRef[nRoadId].nMoverCounter:=aRoadRef[nRoadId].nMoverCounter+1;
+				 _stNode.pMover:=aRoadRef[nRoadId].aNode[_nIndex+1].pMover;
+				 _nAxisId:=aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stNcTOPLC.nAxisId;   // 07.03
+				 
+				 FOR _nSubIndex:=_nMoverCounter TO (_nIndex+1) BY -1  DO
+					 MEMSET(ADR(aRoadRef[nRoadId].aNode[_nSubIndex+1]),0,SIZEOF(aRoadRef[nRoadId].aNode[_nSubIndex+1]));  //06.21
+					 
+					 aRoadRef[nRoadId].aNode[_nSubIndex+1]:=aRoadRef[nRoadId].aNode[_nSubIndex];
+				 END_FOR
+				 aRoadRef[nRoadId].aNode[_nIndex+1].nAxisId:=pAixs^.stNcTOPLC.nAxisId;
+				 aRoadRef[nRoadId].aNode[_nIndex+1].pAftermover:=aRoadRef[nRoadId].aNode[_nIndex].pMover;
+				 aRoadRef[nRoadId].aNode[_nIndex+1].pPremover:=_stNode.pMover;
+				 aRoadRef[nRoadId].aNode[_nIndex+1].pMover:=pAixs;
+				 aRoadRef[nRoadId].aNode[_nIndex].pPremover:=pAixs;
+				 aRoadRef[nRoadId].aNode[_nIndex+2].pAftermover:=pAixs;
+				 
+				 // 增加前置后置同步更新  07.11
+				aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nIndex+1].pPremover;
+				aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[_nIndex+1].pAftermover;
+				aRoadRef[nRoadId].aNode[_nIndex].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nIndex].pPremover;
+				aRoadRef[nRoadId].aNode[_nIndex+2].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[_nIndex+2].pAftermover;
+				EXIT;
+			END_IF	
+		END_FOR
+		pAixs^.stNcTOPLC.fModuloFactor:=aRoadRef[nRoadId].fLength;
+	END_IF
+END_IF 
+// 07.03 增加日志
+IF GVL_MC.cDebug  THEN
+	    
+		  _sMessage:=CONCAT(DWORD_TO_STRING(pAixs^.stNcTOPLC.nAxisId),',add');
+		  _sMessage:=CONCAT(_sMessage,',');
+		  _sMessage:=CONCAT(_sMessage,LREAL_TO_STRING(pAixs^.stNcTOPLC.fActPos));
+		  
+		  _sMessage:=CONCAT(_sMessage,',');
+		  _sMessage:=CONCAT(_sMessage,UINT_TO_STRING(_nMoverCounter));
+          _sMessage:=CONCAT(_sMessage,',');	 
+		  _sMessage:=CONCAT(_sMessage,UINT_TO_STRING(aRoadRef[nRoadId].nMoverCounter));
+   	      _sMessage:=CONCAT(_sMessage,',');
+		  _sMessage:=CONCAT(_sMessage,UINT_TO_STRING(_nPos));
+		  _sMessage:=CONCAT(_sMessage,',');
+		  _sMessage:=CONCAT(_sMessage,DWORD_TO_STRING(_nAxisId));
+		  _sMessage:=CONCAT(_sMessage,',');
+		  _sMessage:=CONCAT(_sMessage,UINT_TO_STRING(nRoadId));
+		  _sMessage:=CONCAT(_sMessage,':list');
+		  _sMessage:=CONCAT(_sMessage,_sMessage1);
+		  ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+END_IF
+
+M_AddNode:=TRUE;
+
+(*IF (nRoadId<>pAixs^.stNcTOPLC.nCuRoadID)THEN 
+	RETURN;
+END_IF
+
+_nMoverCounter:=aRoadRef[nRoadId].nMoverCounter;
+
+// 06.16 增加前后置清除
+pAixs^.stAxisStatus.pPremover:=null;
+pAixs^.stAxisStatus.pAftermover:=null;
+pAixs^.stAxisStatus.pNextRoadPremover:=null;
+
+IF (aRoadRef[nRoadId].nMoverCounter=0)THEN 
+    aRoadRef[nRoadId].aNode[1].pMover:=pAixs;
+	aRoadRef[nRoadId].aNode[1].pPremover:=null;
+	aRoadRef[nRoadId].aNode[1].pAftermover:=null;
+	aRoadRef[nRoadId].aNode[1].nAxisId:=pAixs^.stNcTOPLC.nAxisId;
+	aRoadRef[nRoadId].nMoverCounter:=aRoadRef[nRoadId].nMoverCounter+1;
+    pAixs^.stNcTOPLC.fModuloFactor:=aRoadRef[nRoadId].fLength;
+	aRoadRef[nRoadId].pLastAixs:=pAixs;
+	aRoadRef[nRoadId].pFirstAixs:=pAixs;
+	// 增加前置后置同步更新  07.11
+	aRoadRef[nRoadId].aNode[1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[1].pPremover;
+	aRoadRef[nRoadId].aNode[1].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[1].pAftermover;
+	
+ELSE
+	
+    IF (pAixs^.stNcTOPLC.fActPos<=aRoadRef[nRoadId].aNode[1].pMover^.stNcTOPLC.fActPos) THEN  //尾部插入节点
+		(*_bFlag:=FALSE;
+		FOR _nIndex:=1 TO _nMoverCounter BY 1  DO
+		   IF (aRoadRef[nRoadId].aNode[_nIndex].nAxisId=pAixs^.stNcTOPLC.nAxisId)THEN
+			   _bFlag:=TRUE;
+			    EXIT;
+		   END_IF
+		END_FOR
+		IF _bFlag THEN 
+			RETURN;
+		END_IF*)
+		
+		(*FOR _nIndex:=_nMoverCounter TO 1 BY -1  DO
+		   aRoadRef[nRoadId].aNode[_nIndex+1]:=aRoadRef[nRoadId].aNode[_nIndex];
+		END_FOR*)  //06.23
+		IF (aRoadRef[nRoadId].aNode[1].nAxisId=pAixs^.stNcTOPLC.nAxisId)OR (aRoadRef[nRoadId].aNode[2].nAxisId=pAixs^.stNcTOPLC.nAxisId) THEN  //06.23
+             RETURN;
+        END_IF
+		
+		Memmove(ADR(aRoadRef[nRoadId].aNode[2]),ADR(aRoadRef[nRoadId].aNode[1]),_nMoverCounter*SIZEOF(aRoadRef[nRoadId].aNode[1]));
+		
+		aRoadRef[nRoadId].aNode[1].nAxisId:=pAixs^.stNcTOPLC.nAxisId;
+		aRoadRef[nRoadId].aNode[1].pAftermover:=null;
+		aRoadRef[nRoadId].aNode[1].pPremover:=aRoadRef[nRoadId].aNode[2].pMover;
+		aRoadRef[nRoadId].aNode[1].pMover:=pAixs;
+		aRoadRef[nRoadId].aNode[2].pAftermover:=pAixs;
+		aRoadRef[nRoadId].pLastAixs:=pAixs;
+		aRoadRef[nRoadId].nMoverCounter:=aRoadRef[nRoadId].nMoverCounter+1;
+		pAixs^.stNcTOPLC.fModuloFactor:=aRoadRef[nRoadId].fLength;
+		
+		// 增加前置后置同步更新  07.11
+	    aRoadRef[nRoadId].aNode[1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[1].pPremover;
+	    aRoadRef[nRoadId].aNode[1].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[1].pAftermover;
+	    aRoadRef[nRoadId].aNode[2].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[2].pAftermover;
+		
+	ELSIF (pAixs^.stNcTOPLC.fActPos>=aRoadRef[nRoadId].aNode[_nMoverCounter].pMover^.stNcTOPLC.fActPos)THEN
+		IF (aRoadRef[nRoadId].aNode[_nMoverCounter].nAxisId=pAixs^.stNcTOPLC.nAxisId)OR (aRoadRef[nRoadId].aNode[_nMoverCounter-1].nAxisId=pAixs^.stNcTOPLC.nAxisId) THEN  //06.23
+             RETURN;
+        END_IF
+		(*_bFlag:=FALSE;
+		FOR _nIndex:=1 TO _nMoverCounter BY 1  DO
+		   IF (aRoadRef[nRoadId].aNode[_nIndex].nAxisId=pAixs^.stNcTOPLC.nAxisId)THEN
+			   _bFlag:=TRUE;
+			    EXIT;
+		   END_IF
+		END_FOR
+		IF _bFlag THEN 
+			RETURN;
+		END_IF*)  //06.23
+		
+		// 04.18
+		aRoadRef[nRoadId].aNode[_nMoverCounter+1].nAxisId:=pAixs^.stNcTOPLC.nAxisId;
+		//aRoadRef[nRoadId].aNode[_nMoverCounter+1].pAftermover:=aRoadRef[nRoadId].pFirstAixs;  //06.23
+		aRoadRef[nRoadId].aNode[_nMoverCounter+1].pAftermover:=aRoadRef[nRoadId].aNode[_nMoverCounter].pMover;  //06.23
+		aRoadRef[nRoadId].aNode[_nMoverCounter+1].pPremover:=null;
+		aRoadRef[nRoadId].aNode[_nMoverCounter+1].pMover:=pAixs;
+		aRoadRef[nRoadId].pFirstAixs:=pAixs;
+		aRoadRef[nRoadId].aNode[_nMoverCounter].pPremover:=pAixs;
+		
+		// 增加前置后置同步更新  07.11
+	    aRoadRef[nRoadId].aNode[_nMoverCounter+1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nMoverCounter+1].pPremover;
+	    aRoadRef[nRoadId].aNode[_nMoverCounter+1].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[_nMoverCounter+1].pAftermover;
+	    aRoadRef[nRoadId].aNode[_nMoverCounter].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nMoverCounter].pPremover;
+		// 	
+		aRoadRef[nRoadId].nMoverCounter:=aRoadRef[nRoadId].nMoverCounter+1;
+		pAixs^.stNcTOPLC.fModuloFactor:=aRoadRef[nRoadId].fLength;
+		
+	ELSE                //中间插入节点
+		(*_bFlag:=FALSE;
+		FOR _nIndex:=1 TO _nMoverCounter BY 1  DO
+		   IF (aRoadRef[nRoadId].aNode[_nIndex].nAxisId=pAixs^.stNcTOPLC.nAxisId)THEN
+			   _bFlag:=TRUE;
+			    EXIT;
+		   END_IF
+		END_FOR
+		IF _bFlag THEN 
+			RETURN;
+		END_IF*)  //06.23
+	
+		FOR _nIndex:=1 TO (_nMoverCounter-1)  DO
+			IF (pAixs^.stNcTOPLC.fActPos>=aRoadRef[nRoadId].aNode[_nIndex].pMover^.stNcTOPLC.fActPos) AND (pAixs^.stNcTOPLC.fActPos<=aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stNcTOPLC.fActPos) THEN
+                 IF (aRoadRef[nRoadId].aNode[_nIndex].nAxisId=pAixs^.stNcTOPLC.nAxisId)OR (aRoadRef[nRoadId].aNode[_nIndex+1].nAxisId=pAixs^.stNcTOPLC.nAxisId) THEN  //06.23
+                     RETURN;
+                 END_IF
+                 
+				 
+				 aRoadRef[nRoadId].nMoverCounter:=aRoadRef[nRoadId].nMoverCounter+1;
+				 _stNode.pMover:=aRoadRef[nRoadId].aNode[_nIndex+1].pMover;
+				 
+				 (*FOR _nSubIndex:=_nMoverCounter TO (_nIndex+1) BY -1  DO
+					 MEMSET(ADR(aRoadRef[nRoadId].aNode[_nSubIndex+1]),0,SIZEOF(aRoadRef[nRoadId].aNode[_nSubIndex+1]));  //06.21
+					 aRoadRef[nRoadId].aNode[_nSubIndex+1]:=aRoadRef[nRoadId].aNode[_nSubIndex];
+				 END_FOR*)  //06.22
+				 IF (_nIndex+2)<=GVL_MC.MAX_MOVER THEN 
+				    Memmove(ADR(aRoadRef[nRoadId].aNode[_nIndex+2]),ADR(aRoadRef[nRoadId].aNode[_nIndex+1]),(_nMoverCounter-_nIndex)*SIZEOF(aRoadRef[nRoadId].aNode[_nIndex]));
+				    MEMSET(ADR(aRoadRef[nRoadId].aNode[_nIndex+1]),0,SIZEOF(aRoadRef[nRoadId].aNode[_nIndex+1]));  //06.21
+				 ELSE
+					 RETURN;
+				 END_IF
+				 aRoadRef[nRoadId].aNode[_nIndex+1].nAxisId:=pAixs^.stNcTOPLC.nAxisId;
+				 aRoadRef[nRoadId].aNode[_nIndex+1].pAftermover:=aRoadRef[nRoadId].aNode[_nIndex].pMover;
+				 aRoadRef[nRoadId].aNode[_nIndex+1].pPremover:=_stNode.pMover;
+				 aRoadRef[nRoadId].aNode[_nIndex+1].pMover:=pAixs;
+				 aRoadRef[nRoadId].aNode[_nIndex].pPremover:=pAixs;
+				 aRoadRef[nRoadId].aNode[_nIndex+2].pAftermover:=pAixs;
+				 
+				 // 增加前置后置同步更新  07.11
+				aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nIndex+1].pPremover;
+				aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[_nIndex+1].pAftermover;
+				aRoadRef[nRoadId].aNode[_nIndex].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nIndex].pPremover;
+				aRoadRef[nRoadId].aNode[_nIndex+2].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[_nIndex+2].pAftermover;
+				EXIT;
+			END_IF	
+		END_FOR
+		pAixs^.stNcTOPLC.fModuloFactor:=aRoadRef[nRoadId].fLength;
+	END_IF
+END_IF 
+
+M_AddNode:=TRUE;*)
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="M_DeleteNode" Id="{2ec8ffde-eddb-451f-b58e-2899a91aa577}">
+      <Declaration><![CDATA[METHOD M_DeleteNode : BOOL
+VAR_IN_OUT
+	aRoadRef: ARRAY[1..GVl_MC.cRoadNum] OF ST_RoadRef;
+END_VAR
+VAR_INPUT
+	nSysType: UINT;
+	nRoadId: UINT;
+	pAixs: POINTER TO ST_Axis := null;
+END_VAR
+VAR
+	_nIndex: UINT;
+	_nSubIndex: UINT;
+	_nMoverCounter: UINT;
+	_nPos:  UINT;   //07.03   1 road没动子   2 road 头  3 road尾 4 中间
+	_stNode: ST_Node;
+	_stNode_No: ST_Node;
+	_sMessage: STRING;
+	_sMessage1: STRING;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[M_DeleteNode:=FALSE;
+IF (nRoadId<=0)OR (nRoadId>GVl_MC.cRoadNum)THEN 
+	RETURN;
+END_IF
+
+(*IF (nRoadId<>pAixs^.stNcTOPLC.nCuRoadID)THEN   //07.01
+	RETURN;
+END_IF*)  //07.11
+
+IF (aRoadRef[nRoadId].nMoverCounter=0)THEN 
+	RETURN;
+END_IF
+// 07.03
+_nPos:=0;
+_sMessage1:='';
+_sMessage:='';
+_nMoverCounter:=aRoadRef[nRoadId].nMoverCounter;
+
+FOR _nIndex:=1 TO _nMoverCounter  DO
+	IF (aRoadRef[nRoadId].aNode[_nIndex].nAxisId=pAixs^.stNcTOPLC.nAxisId)THEN 
+		_stNode.pPremover:=aRoadRef[nRoadId].aNode[_nIndex].pPremover;
+		_stNode.pAftermover:=aRoadRef[nRoadId].aNode[_nIndex].pAftermover;
+		_stNode.pMover:=aRoadRef[nRoadId].aNode[_nIndex].pMover;
+		
+		FOR _nSubIndex:=_nIndex TO (_nMoverCounter-1)  DO
+			
+			 aRoadRef[nRoadId].aNode[_nSubIndex]:=aRoadRef[nRoadId].aNode[_nSubIndex+1];
+		END_FOR
+		aRoadRef[nRoadId].aNode[_nMoverCounter]:=_stNode_No;
+		IF (_nIndex=1)THEN
+		   aRoadRef[nRoadId].pLastAixs:=_stNode.pPremover;
+		   
+		   IF (nSysType=3)THEN
+			   IF (_nMoverCounter=1)THEN 
+                  aRoadRef[nRoadId].pFirstAixs:=null;
+               ELSIF (_nMoverCounter=2)THEN  
+				   aRoadRef[nRoadId].aNode[_nIndex].pAftermover:=null;
+				   aRoadRef[nRoadId].aNode[_nIndex].pPremover:=null;
+				   // 增加前置后置同步更新  07.11
+				   aRoadRef[nRoadId].aNode[_nIndex].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[_nIndex].pAftermover;
+				   aRoadRef[nRoadId].aNode[_nIndex].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nIndex].pPremover;
+               ELSE 
+			      aRoadRef[nRoadId].aNode[_nIndex].pAftermover:=_stNode.pAftermover;
+			      aRoadRef[nRoadId].aNode[_nMoverCounter-1].pPremover:=_stNode.pPremover;
+				  
+				  // 增加前置后置同步更新  07.11
+				  aRoadRef[nRoadId].aNode[_nIndex].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[_nIndex].pAftermover;
+				  aRoadRef[nRoadId].aNode[_nMoverCounter-1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nMoverCounter-1].pPremover;
+			   END_IF
+		   ELSE
+			   aRoadRef[nRoadId].aNode[_nIndex].pAftermover:=null;
+			   IF (_nMoverCounter=1)THEN 
+				   aRoadRef[nRoadId].pFirstAixs:=null;
+			   ELSE
+					aRoadRef[nRoadId].aNode[1].pMover^.stAxisStatus.pAftermover:=null;
+					// 增加同步更新
+					aRoadRef[nRoadId].aNode[1].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[_nIndex].pAftermover;   //02.03
+			   END_IF
+		   
+		   END_IF
+		ELSE
+		   aRoadRef[nRoadId].aNode[_nIndex-1].pPremover:=_stNode.pPremover;
+		   aRoadRef[nRoadId].aNode[_nIndex].pAftermover:=_stNode.pAftermover;
+		   IF (_nIndex=_nMoverCounter)THEN 
+			    aRoadRef[nRoadId].pFirstAixs:=_stNode.pAftermover;
+				aRoadRef[nRoadId].aNode[_nMoverCounter]:=_stNode_No;
+				IF (nSysType=3)THEN
+					// 增加前置后置同步更新  07.11
+				   aRoadRef[nRoadId].aNode[_nIndex-1].pPremover:=aRoadRef[nRoadId].aNode[1].pMover;  //07.02
+			       aRoadRef[nRoadId].aNode[1].pAftermover:= aRoadRef[nRoadId].aNode[_nIndex-1].pMover;
+				   
+				   aRoadRef[nRoadId].aNode[1].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[1].pAftermover;
+				   aRoadRef[nRoadId].aNode[_nIndex-1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nIndex-1].pPremover;
+				ELSE
+					// 增加前置后置同步更新  07.11
+				    aRoadRef[nRoadId].aNode[_nIndex-1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nIndex-1].pPremover;
+				END_IF
+
+		   ELSE
+			   // 增加前置后置同步更新  07.11
+			   aRoadRef[nRoadId].aNode[_nIndex-1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nIndex-1].pPremover;
+			   aRoadRef[nRoadId].aNode[_nIndex].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[_nIndex].pAftermover;
+			   
+		   END_IF
+		END_IF
+		aRoadRef[nRoadId].nMoverCounter:=aRoadRef[nRoadId].nMoverCounter-1;
+	    EXIT;
+	END_IF   
+END_FOR
+M_DeleteNode:=TRUE;
+
+// 07.03 增加日志
+IF GVL_MC.cDebug  THEN
+	    
+		  _sMessage:=CONCAT(DWORD_TO_STRING(pAixs^.stNcTOPLC.nAxisId),',delete');
+		  _sMessage:=CONCAT(_sMessage,',');
+		  _sMessage:=CONCAT(_sMessage,LREAL_TO_STRING(pAixs^.stNcTOPLC.fActPos));
+		  _sMessage:=CONCAT(_sMessage,',');
+		  _sMessage:=CONCAT(_sMessage,UINT_TO_STRING(_nMoverCounter));
+          _sMessage:=CONCAT(_sMessage,',');	 
+		  _sMessage:=CONCAT(_sMessage,UINT_TO_STRING(aRoadRef[nRoadId].nMoverCounter));
+   	      _sMessage:=CONCAT(_sMessage,',');
+		  _sMessage:=CONCAT(_sMessage,UINT_TO_STRING(_nPos));
+		  _sMessage:=CONCAT(_sMessage,',');
+		  _sMessage:=CONCAT(_sMessage,UINT_TO_STRING(nRoadId));
+		  ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+END_IF
+
+(*M_DeleteNode:=FALSE;
+IF (nRoadId<=0)OR (nRoadId>GVl_MC.cRoadNum)THEN 
+	RETURN;
+END_IF
+
+(*IF (nRoadId<>pAixs^.stNcTOPLC.nCuRoadID)THEN   //07.01
+	RETURN;
+END_IF*)  //07.11
+
+IF (aRoadRef[nRoadId].nMoverCounter=0)THEN 
+	RETURN;
+END_IF
+
+_nMoverCounter:=aRoadRef[nRoadId].nMoverCounter;
+
+FOR _nIndex:=1 TO _nMoverCounter  DO
+	IF (aRoadRef[nRoadId].aNode[_nIndex].nAxisId=pAixs^.stNcTOPLC.nAxisId)THEN 
+		// 保存要删除的节点
+		_stNode.pPremover:=aRoadRef[nRoadId].aNode[_nIndex].pPremover;
+		_stNode.pAftermover:=aRoadRef[nRoadId].aNode[_nIndex].pAftermover;
+		_stNode.pMover:=aRoadRef[nRoadId].aNode[_nIndex].pMover;
+	
+		(*FOR _nSubIndex:=_nIndex TO _nMoverCounter  DO
+			 aRoadRef[nRoadId].aNode[_nSubIndex]:=aRoadRef[nRoadId].aNode[_nSubIndex+1];
+		END_FOR*)  //06.22
+		// 后续节点往前移动
+		Memset(ADR(aRoadRef[nRoadId].aNode[_nIndex]),0,SIZEOF(aRoadRef[nRoadId].aNode[_nIndex]));
+		Memmove(ADR(aRoadRef[nRoadId].aNode[_nIndex]),ADR(aRoadRef[nRoadId].aNode[_nIndex+1]),(_nMoverCounter-_nIndex+1)*SIZEOF(aRoadRef[nRoadId].aNode[_nIndex]));
+			
+		IF (_nIndex=1)THEN
+		   aRoadRef[nRoadId].pLastAixs:=_stNode.pPremover;
+		   IF (nSysType=3)THEN
+			   IF (_nMoverCounter=1)THEN 
+                  aRoadRef[nRoadId].pFirstAixs:=null;
+				
+               ELSIF (_nMoverCounter=2)THEN  
+				   aRoadRef[nRoadId].aNode[_nIndex].pAftermover:=null;
+				   aRoadRef[nRoadId].aNode[_nIndex].pPremover:=null;
+				   // 增加前置后置同步更新  07.11
+				   aRoadRef[nRoadId].aNode[_nIndex].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[_nIndex].pAftermover;
+				   aRoadRef[nRoadId].aNode[_nIndex].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nIndex].pPremover;
+               ELSE 
+			      aRoadRef[nRoadId].aNode[_nIndex].pAftermover:=_stNode.pAftermover;
+			      aRoadRef[nRoadId].aNode[_nMoverCounter-1].pPremover:=_stNode.pPremover;
+				  
+				  // 增加前置后置同步更新  07.11
+				  aRoadRef[nRoadId].aNode[_nIndex].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[_nIndex].pAftermover;
+				  aRoadRef[nRoadId].aNode[_nMoverCounter-1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nMoverCounter-1].pPremover;
+			   END_IF
+		   ELSE
+			   aRoadRef[nRoadId].aNode[_nIndex].pAftermover:=null;
+			   IF (_nMoverCounter=1)THEN 
+				   aRoadRef[nRoadId].pFirstAixs:=null;
+			   ELSE
+					aRoadRef[nRoadId].aNode[1].pMover^.stAxisStatus.pAftermover:=null;
+					// 增加同步更新
+					aRoadRef[nRoadId].aNode[1].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[_nIndex].pAftermover;   //02.03
+			   END_IF
+		   END_IF
+		ELSE
+		   aRoadRef[nRoadId].aNode[_nIndex-1].pPremover:=_stNode.pPremover;
+		   aRoadRef[nRoadId].aNode[_nIndex].pAftermover:=_stNode.pAftermover;
+		   IF (_nIndex=_nMoverCounter)THEN 
+			    aRoadRef[nRoadId].pFirstAixs:=_stNode.pAftermover;
+				//aRoadRef[nRoadId].aNode[_nMoverCounter]:=_stNode_No;  // 06.23
+				Memset(ADR(aRoadRef[nRoadId].aNode[_nIndex]),0,SIZEOF(aRoadRef[nRoadId].aNode[_nIndex]));  //06.23
+				
+				IF (nSysType=3)THEN
+					// 增加前置后置同步更新  07.11
+				   aRoadRef[nRoadId].aNode[_nIndex-1].pPremover:=aRoadRef[nRoadId].aNode[1].pMover;  //07.02
+			       aRoadRef[nRoadId].aNode[1].pAftermover:= aRoadRef[nRoadId].aNode[_nIndex-1].pMover;
+				   
+				   aRoadRef[nRoadId].aNode[1].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[1].pAftermover;
+				   aRoadRef[nRoadId].aNode[_nIndex-1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nIndex-1].pPremover;
+				ELSE
+					// 增加前置后置同步更新  07.11
+				   // aRoadRef[nRoadId].aNode[_nIndex-1].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[_nIndex-1].pAftermover;
+				    aRoadRef[nRoadId].aNode[_nIndex-1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nIndex-1].pPremover;
+					
+				END_IF
+
+		   ELSE
+			   // 增加前置后置同步更新  07.11
+			   aRoadRef[nRoadId].aNode[_nIndex-1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nIndex-1].pPremover;
+			   aRoadRef[nRoadId].aNode[_nIndex].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[_nIndex].pAftermover;
+			   
+		   END_IF
+		END_IF
+		aRoadRef[nRoadId].nMoverCounter:=aRoadRef[nRoadId].nMoverCounter-1;
+	    EXIT;
+	END_IF   
+END_FOR
+M_DeleteNode:=true;*)
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="M_Init" Id="{c5b42296-f248-4b7d-bfdb-ddca824cd443}">
+      <Declaration><![CDATA[METHOD M_Init : BOOL
+VAR_IN_OUT
+	aRoadRef: ARRAY[1..GVL_MC.cRoadNum] OF ST_RoadRef;
+	aAxis: ARRAY[1..GVL_MC.MAX_MOVER] OF ST_Axis;
+END_VAR
+VAR_STAT
+	_aRoad: ARRAY[1..GVL_MC.cRoadNum] OF ST_Road;
+	_aAxisGroup: ARRAY[1..GVL_MC.cRoadNum] OF ST_AxisGroup;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[_fbTrig(CLK:=bExecute , Q=> );
+IF _fbTrig.Q AND(_nStep=0)THEN
+	_nStep:=10;
+END_IF 
+
+CASE _nStep OF 
+	0:
+	    IF NOT bExecute THEN 
+			bError:=FALSE;
+			nErrorID:=0;
+		END_IF
+	    RETURN ;
+				
+    10:
+	    bBusy:=TRUE;
+		bDone :=FALSE;
+	    bError:=FALSE;
+		nErrorID :=0;
+		_bLoad:=TRUE;
+		_nCount:=0;
+	
+		// road清除
+		_nRoadNum:=0;
+		_nMoverNum:=0;
+		FOR _nIndex:=1 TO GVl_MC.cRoadNum  DO
+			_aRoad[_nIndex].nId:=0;
+			_aRoad[_nIndex].fLength:=0;
+			_aAxisGroup[_nIndex].nGroupId:=0;
+			//_aAxisGroup[_nIndex].aAxis:=_aAxisNo;   //09.26
+
+			MEMSET(ADR(_aAxisGroup[_nIndex].aAxis),0,SIZEOF(_aAxisGroup[_nIndex].aAxis));  //09.24
+			_aAxisGroup[_nIndex].nCount:=0;
+			
+		END_FOR
+		MEMSET(ADR(aRoadRef),0,SIZEOF(aRoadRef));  // 26.06.16 
+		_nStep:=_nStep+10;
+		
+	20:  //读取track配置文件
+	     IF _bLoad  THEN
+			 _bLoaded :=_fbJson.LoadDocumentFromFile(sFile:=sJsonPath , bExec:=_bLoad , hrErrorCode=>hrErrorCode );
+		 ELSE
+			 IF (hrErrorCode<>0) THEN
+				 _nStep:=100;
+				 nErrorId:=DINT_TO_UDINT(hrErrorCode);
+				 
+			 ELSE
+				 IF _bLoaded THEN
+			        _nStep:=_nStep+10;
+					_bLoaded:=FALSE;
+				 ELSE
+					_nStep:=100;
+                    nErrorId:=32588;
+			     END_IF 
+				 MEMSET(ADR(_aRoad),0,SIZEOF(_aRoad));
+				 FOR  _nIndex:=1 TO GVL_MC.MAX_MOVER  DO
+					  MEMSET(ADR(aAxis[_nIndex].stAxisParam.stRoadParam.aRoad),0,SIZEOF(aAxis[_nIndex].stAxisParam.stRoadParam.aRoad));
+				 END_FOR
+				 //MEMSET(ADR(aRoadRef),0,SIZEOF(aRoadRef));
+			 END_IF 
+			 
+		 END_IF 
+		 
+    30:  //读取并记录road信息
+	     _sJsonRoot:=_fbJson.GetDocumentRoot();
+		 _sjsonProp := _fbJson.FindMemberPath(_sJsonRoot, 'road');
+         _nArraySize := UDINT_TO_UINT(_fbJson.GetArraySize( _sjsonProp));
+	        
+	     IF (_nArraySize<>0) THEN
+				FOR  _nIndex:=0 TO (_nArraySize-1)  DO
+				  _pJsonValue := _fbJson.GetArrayValueByIdx(_sjsonProp,_nIndex);
+				  _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'id');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_nRoadID:=STRING_TO_UINT(_fbJson.Getstring(_sJsonSubRoot));
+				  END_IF
+				  _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'length');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_fRoadLenth:=STRING_TO_REAL(_fbJson.Getstring(_sJsonSubRoot));
+				  END_IF
+				  //_aRoad[_nIndex+1].nId:=_nRoadID;
+				 // _aRoad[_nIndex+1].fLength:=_fRoadLenth;
+				  //aRoadRef[_nIndex+1].fLength:=_fRoadLenth;
+				  //_nRoadNum:=_nRoadNum+1;
+				  IF _nRoadID<=GVL_MC.cRoadNum AND _nRoadID>0 THEN
+				     _aRoad[_nRoadID].nId:=_nRoadID;
+				     _aRoad[_nRoadID].fLength:=_fRoadLenth;
+					 aRoadRef[_nRoadID].fLength:=_fRoadLenth;
+				     _nRoadNum:=_nRoadNum+1;
+				  ELSE
+					  _bRoadNumErr:=TRUE;
+					  EXIT;
+				  END_IF
+				  
+				  
+				END_FOR
+		 END_IF 
+		 _nStep:=_nStep+10;
+		 IF (_nRoadNum=0)THEN
+			 nErrorID:=32586;
+			 _nStep:=100;
+		 END_IF
+		 IF _bRoadNumErr THEN 
+			 nErrorID:=32587;
+			 _nStep:=100;
+			 _bRoadNumErr:=FALSE;
+		 END_IF
+		
+    40:  //遍历road上动子数量
+	     _nSysType:=aAxis[1].stAxisParam.stRoadParam.nSysType;
+	     FOR _nIndex:=1 TO GVl_MC.cRoadNum  DO
+			_nCount:=0;
+
+            IF (_aRoad[_nIndex].nId<>0)THEN 
+				_aAxisGroup[_nIndex].nGroupId:=_aRoad[_nIndex].nId;
+				
+			    FOR _nSubIndex:=1 TO GVL_MC.MAX_MOVER  DO
+					 //aAxis[_nSubIndex].stNcTOPLC.nCuRoadID:=aAxis[_nSubIndex].stCodToNCParam.nRoadID;   //01.02
+					 IF(aAxis[_nSubIndex].stNcTOPLC.nAxisId<>0)AND(aAxis[_nSubIndex].stNcTOPLC.nCuRoadID=_aRoad[_nIndex].nId)THEN
+			             _nCount:=_nCount+1;
+						 _nMoverNum:=_nMoverNum+1;
+						 _aAxisGroup[_nIndex].nCount:=_nCount;
+			             _aAxisGroup[_nIndex].aAxis[_nCount]:=aAxis[_nSubIndex];
+			         END_IF
+					  aAxis[_nSubIndex].stAxisParam.stRoadParam.aRoad[_nIndex].fLength:=_aRoad[_nIndex].fLength;
+					  aAxis[_nSubIndex].stAxisParam.stRoadParam.aRoad[_nIndex].nId:=_nIndex;
+				END_FOR
+				//判断动子数量是否异常
+				IF (_nCount=0)THEN 
+					CONTINUE;
+				END_IF
+				//判断当前road动子数量是否大于2
+                //IF (_nCount>=2)THEN
+				FOR _nIndex_i:=1 TO _nCount DO     //按位置大小排序
+					   FOR (_nIndex_j:=_nIndex_i+1) TO _nCount   DO 
+						  IF (_aAxisGroup[_nIndex].aAxis[_nIndex_i].stCodToNCParam.fActualPos >_aAxisGroup[_nIndex].aAxis[_nIndex_j].stCodToNCParam.fActualPos)THEN 
+							_stAxis:=_aAxisGroup[_nIndex].aAxis[_nIndex_i];
+							_aAxisGroup[_nIndex].aAxis[_nIndex_i]:=_aAxisGroup[_nIndex].aAxis[_nIndex_j];
+							_aAxisGroup[_nIndex].aAxis[_nIndex_j]:=_stAxis;
+						  END_IF
+					   END_FOR 
+				END_FOR
+				//aRoadRef[_nIndex].fLength:=_aRoad[_nIndex].fLength;
+			    aRoadRef[_nIndex].nMoverCounter:=_nCount;
+				aRoadRef[_nIndex].pFirstAixs:=ADR(aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nCount].stNcTOPLC.nAxisId)]);
+			    aRoadRef[_nIndex].pLastAixs:=ADR(aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[1].stNcTOPLC.nAxisId)]);
+			    //判断当前road动子数量是否大于2
+                IF (_nCount>=2)THEN
+				    FOR _nIndex_i:=1 TO _nCount DO     //前置、后置分配
+						
+						IF(_nSysType=3) THEN   //环形
+							IF ((_nIndex_i+1)<=_nCount)THEN
+								aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i].stNcTOPLC.nAxisId)].stAxisStatus.pPremover:=ADR(aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i+1].stNcTOPLC.nAxisId)]);
+								 
+							ELSE
+								aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i].stNcTOPLC.nAxisId)].stAxisStatus.pPremover:=ADR(aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[1].stNcTOPLC.nAxisId)]);
+							END_IF 
+							IF (_nIndex_i>=2)THEN
+							   aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i].stNcTOPLC.nAxisId)].stAxisStatus.pAftermover:=ADR(aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i-1].stNcTOPLC.nAxisId)]);
+							ELSE
+							   aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i].stNcTOPLC.nAxisId)].stAxisStatus.pAftermover:=ADR(aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nCount].stNcTOPLC.nAxisId)]);
+							END_IF
+							aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i].stNcTOPLC.nAxisId)].stNcTOPLC.fModuloFactor:=_aRoad[_nIndex].fLength;
+							aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i].stNcTOPLC.nAxisId)].stAxisParam.stRoadParam.aRoad[_nIndex].fLength:=_aRoad[_nIndex].fLength;
+							aRoadRef[_nIndex].aNode[_nIndex_i].nAxisId:=DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i].stNcTOPLC.nAxisId);
+							aRoadRef[_nIndex].aNode[_nIndex_i].pMover:=ADR(aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i].stNcTOPLC.nAxisId)]);
+							aRoadRef[_nIndex].aNode[_nIndex_i].pPremover:=aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i].stNcTOPLC.nAxisId)].stAxisStatus.pPremover;
+					        aRoadRef[_nIndex].aNode[_nIndex_i].pAftermover:=aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i].stNcTOPLC.nAxisId)].stAxisStatus.pAftermover;
+						ELSE
+							IF ((_nIndex_i+1)<=_nCount)THEN    //前置
+								aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i].stNcTOPLC.nAxisId)].stAxisStatus.pPremover:=ADR(aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i+1].stNcTOPLC.nAxisId)]);
+							ELSE
+								aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i].stNcTOPLC.nAxisId)].stAxisStatus.pPremover:=null;
+							END_IF 
+							
+							IF (_nIndex_i>=2)THEN            //后置
+							    aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i].stNcTOPLC.nAxisId)].stAxisStatus.pAftermover:=ADR(aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i-1].stNcTOPLC.nAxisId)]);
+							ELSE
+								aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i].stNcTOPLC.nAxisId)].stAxisStatus.pAftermover:=null;
+							END_IF
+							aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i].stNcTOPLC.nAxisId)].stNcTOPLC.fModuloFactor:=_aRoad[_nIndex].fLength;
+							aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i].stNcTOPLC.nAxisId)].stAxisParam.stRoadParam.aRoad[_nIndex].fLength:=_aRoad[_nIndex].fLength;
+							aRoadRef[_nIndex].aNode[_nIndex_i].nAxisId:=DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i].stNcTOPLC.nAxisId);
+							aRoadRef[_nIndex].aNode[_nIndex_i].pMover:=adr(aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i].stNcTOPLC.nAxisId)]);
+							aRoadRef[_nIndex].aNode[_nIndex_i].pPremover:=aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i].stNcTOPLC.nAxisId)].stAxisStatus.pPremover;
+					        aRoadRef[_nIndex].aNode[_nIndex_i].pAftermover:=aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[_nIndex_i].stNcTOPLC.nAxisId)].stAxisStatus.pAftermover;
+						END_IF
+					END_FOR
+				ELSE
+					aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[1].stNcTOPLC.nAxisId)].stAxisStatus.pPremover:=null;
+                    aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[1].stNcTOPLC.nAxisId)].stAxisStatus.pAftermover:=null;
+					aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[1].stNcTOPLC.nAxisId)].stNcTOPLC.fModuloFactor:=_aRoad[_nIndex].fLength;
+					aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[1].stNcTOPLC.nAxisId)].stAxisParam.stRoadParam.aRoad[_nIndex].fLength:=_aRoad[_nIndex].fLength;
+					aRoadRef[_nIndex].aNode[1].nAxisId:=DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[1].stNcTOPLC.nAxisId);
+					aRoadRef[_nIndex].aNode[1].pMover:=ADR(aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[1].stNcTOPLC.nAxisId)]);
+					aRoadRef[_nIndex].aNode[1].pPremover:=aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[1].stNcTOPLC.nAxisId)].stAxisStatus.pPremover;
+					aRoadRef[_nIndex].aNode[1].pAftermover:=aAxis[DWORD_TO_UINT(_aAxisGroup[_nIndex].aAxis[1].stNcTOPLC.nAxisId)].stAxisStatus.pAftermover;
+				END_IF
+				
+			END_IF
+            
+		END_FOR
+		_nStep:=_nStep+10;
+		IF (_nMoverNum=0)THEN 
+			 nErrorID:=32587;
+			 _nStep:=100;		
+		END_IF
+		
+    50:	
+		
+	    bBusy:=FALSE;
+		bDone :=TRUE;
+        _fbDoneTon(IN:= FALSE, PT:=tcDoneTime , Q=> , ET=> );
+	    _nStep:=_nStep+10;
+		 
+    60:
+	    _fbDoneTon(IN:=TRUE , PT:=tcDoneTime , Q=> , ET=> );
+	    IF _fbDoneTon.Q THEN
+			_fbDoneTon(IN:= FALSE, PT:=tcDoneTime , Q=> , ET=> );
+			bDone :=FALSE;
+			_nStep:=0;
+			_nCount:=0;
+		END_IF
+   
+	100:
+	    bBusy:=FALSE;
+		bDone :=FALSE;
+		bError:=TRUE;
+		//nErrorId:=DINT_TO_UDINT(hrErrorCode);
+		_nStep:=0;
+
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="M_InsertNode" Id="{3dc145b9-3e21-4c0f-97df-a7bc6ea02ebb}">
+      <Declaration><![CDATA[METHOD M_InsertNode : BOOL
+VAR_IN_OUT
+	aRoadRef: ARRAY[1..GVl_MC.cRoadNum] OF ST_RoadRef;
+END_VAR
+VAR_INPUT
+	nSysType: UINT;
+	nRoadId: UINT;
+	pAixs: POINTER TO ST_Axis := null;
+END_VAR
+VAR
+	_bFlag: BOOL;
+	_nIndex: UINT;
+	_nPos:  UINT;   //07.03   1 road没动子   2 road 头  3 road尾 4 中间
+	_nAxisId:DWORD;
+	_nSubIndex: UINT;
+	_nMoverCounter: UINT;
+	_stNode: ST_Node;
+	_sMessage: STRING;
+	_sMessage1: STRING;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[M_InsertNode:=FALSE;
+IF (nRoadId<=0)OR (nRoadId>GVl_MC.cRoadNum)THEN 
+	RETURN;
+END_IF
+
+IF (nRoadId<>pAixs^.stNcTOPLC.nCuRoadID)THEN 
+	RETURN;
+END_IF
+_nMoverCounter:=aRoadRef[nRoadId].nMoverCounter;
+// 07.03
+_nPos:=0;
+_nAxisId:=0; 
+_sMessage1:='';
+_sMessage:='';
+// 06.16 增加前后置清除
+(*pAixs^.stAxisStatus.pPremover:=null;
+pAixs^.stAxisStatus.pAftermover:=null;
+pAixs^.stAxisStatus.pNextRoadPremover:=null;*) //07.01 注释
+
+//重现排序
+IF (aRoadRef[nRoadId].nMoverCounter=0)THEN
+	aRoadRef[nRoadId].aNode[1].nAxisId:=pAixs^.stNcTOPLC.nAxisId;
+	aRoadRef[nRoadId].aNode[1].pAftermover:=null;
+    aRoadRef[nRoadId].aNode[1].pPremover:=null;
+    aRoadRef[nRoadId].aNode[1].pMover:=pAixs;
+	aRoadRef[nRoadId].pFirstAixs:=pAixs;
+	aRoadRef[nRoadId].pLastAixs:=pAixs;
+	aRoadRef[nRoadId].nMoverCounter:=aRoadRef[nRoadId].nMoverCounter+1;
+	pAixs^.stNcTOPLC.fModuloFactor:=aRoadRef[nRoadId].fLength;
+	// 增加前置后置同步更新  07.11
+	aRoadRef[nRoadId].aNode[1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[1].pPremover;
+	aRoadRef[nRoadId].aNode[1].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[1].pAftermover;
+	_nPos:=1;
+ELSE
+	IF (aRoadRef[nRoadId].aNode[_nMoverCounter].pMover=0) THEN
+		RETURN;
+	END_IF
+	//IF (pAixs^.stNcTOPLC.fActPos<aRoadRef[nRoadId].aNode[1].pMover^.stNcTOPLC.fActPos)THEN    //尾部插入
+	IF ((pAixs^.stNcTOPLC.fActPos<aRoadRef[nRoadId].aNode[1].pMover^.stNcTOPLC.fActPos) AND (pAixs^.stNcTOPLC.nCuRoadID=aRoadRef[nRoadId].aNode[1].pMover^.stNcTOPLC.nCuRoadID)) 
+       OR((pAixs^.stNcTOPLC.fActPos<aRoadRef[nRoadId].aNode[1].pMover^.stNcTOPLC.fActPosLastRoad) AND (pAixs^.stNcTOPLC.nCuRoadID<>aRoadRef[nRoadId].aNode[1].pMover^.stNcTOPLC.nCuRoadID))THEN  //尾部插入节点	
+		_bFlag:=FALSE;
+		FOR _nIndex:=1 TO _nMoverCounter BY 1  DO
+		   IF (aRoadRef[nRoadId].aNode[_nIndex].nAxisId=pAixs^.stNcTOPLC.nAxisId)THEN
+			   _bFlag:=TRUE;
+			    EXIT;
+		   END_IF
+		END_FOR
+		IF _bFlag THEN 
+			RETURN;
+		END_IF
+		// 07.01 复位前置和后置
+		pAixs^.stAxisStatus.pPremover:=null;
+        pAixs^.stAxisStatus.pAftermover:=null;
+        pAixs^.stAxisStatus.pNextRoadPremover:=null;
+		
+		_nPos:=2;  //07.03
+		_nAxisId:=aRoadRef[nRoadId].aNode[1].pMover^.stNcTOPLC.nAxisId;   // 07.03
+		// 07.01 
+		FOR _nIndex:=_nMoverCounter TO 1 BY -1  DO
+		   aRoadRef[nRoadId].aNode[_nIndex+1]:=aRoadRef[nRoadId].aNode[_nIndex]; 
+		END_FOR
+		aRoadRef[nRoadId].aNode[1].nAxisId:=pAixs^.stNcTOPLC.nAxisId;
+		aRoadRef[nRoadId].aNode[1].pAftermover:=null;
+		aRoadRef[nRoadId].aNode[1].pPremover:=aRoadRef[nRoadId].pLastAixs;
+		aRoadRef[nRoadId].aNode[1].pMover:=pAixs;
+		aRoadRef[nRoadId].aNode[2].pAftermover:=pAixs;
+		aRoadRef[nRoadId].pLastAixs:=pAixs;
+		
+		IF (nSysType=3)THEN
+			IF _nMoverCounter>=2 THEN
+			   aRoadRef[nRoadId].aNode[_nMoverCounter+1].pPremover:=pAixs;
+			   aRoadRef[nRoadId].aNode[1].pAftermover:=aRoadRef[nRoadId].aNode[_nMoverCounter+1].pMover;  //07.02
+			   // 增加前置后置同步更新  07.11
+			    aRoadRef[nRoadId].aNode[_nMoverCounter+1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nMoverCounter+1].pPremover;
+				aRoadRef[nRoadId].aNode[1].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[1].pAftermover;
+
+			END_IF
+		ELSE
+				// 增加前置后置同步更新  07.11
+			aRoadRef[nRoadId].aNode[1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[1].pPremover;
+			aRoadRef[nRoadId].aNode[1].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[1].pAftermover;
+			aRoadRef[nRoadId].aNode[2].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[2].pAftermover;
+		END_IF
+		aRoadRef[nRoadId].nMoverCounter:=aRoadRef[nRoadId].nMoverCounter+1;
+	
+	//ELSIF(pAixs^.stNcTOPLC.fActPos>aRoadRef[nRoadId].aNode[_nMoverCounter].pMover^.stNcTOPLC.fActPos)THEN  // 头部插入
+	ELSIF ((pAixs^.stNcTOPLC.fActPos>aRoadRef[nRoadId].aNode[_nMoverCounter].pMover^.stNcTOPLC.fActPos) AND (pAixs^.stNcTOPLC.nCuRoadID=aRoadRef[nRoadId].aNode[_nMoverCounter].pMover^.stNcTOPLC.nCuRoadID)) 
+       OR((pAixs^.stNcTOPLC.fActPos>aRoadRef[nRoadId].aNode[_nMoverCounter].pMover^.stNcTOPLC.fActPosLastRoad) AND (pAixs^.stNcTOPLC.nCuRoadID<>aRoadRef[nRoadId].aNode[_nMoverCounter].pMover^.stNcTOPLC.nCuRoadID))THEN	
+		_bFlag:=FALSE;
+		FOR _nIndex:=1 TO _nMoverCounter BY 1  DO
+		   IF (aRoadRef[nRoadId].aNode[_nIndex].nAxisId=pAixs^.stNcTOPLC.nAxisId)THEN
+			   _bFlag:=TRUE;
+			    EXIT;
+		   END_IF
+		END_FOR
+		IF _bFlag THEN 
+			RETURN;
+		END_IF
+		// 07.01 复位前置和后置
+		pAixs^.stAxisStatus.pPremover:=null;
+        pAixs^.stAxisStatus.pAftermover:=null;
+        pAixs^.stAxisStatus.pNextRoadPremover:=null;
+		
+		_nPos:=3;  //07.03
+		_nAxisId:=aRoadRef[nRoadId].aNode[_nMoverCounter].pMover^.stNcTOPLC.nAxisId;   // 07.03
+		// 07.01 
+		aRoadRef[nRoadId].aNode[_nMoverCounter+1].nAxisId:=pAixs^.stNcTOPLC.nAxisId;
+		aRoadRef[nRoadId].aNode[_nMoverCounter+1].pAftermover:=aRoadRef[nRoadId].aNode[_nMoverCounter].pMover;
+		aRoadRef[nRoadId].aNode[_nMoverCounter+1].pPremover:=null;
+		aRoadRef[nRoadId].aNode[_nMoverCounter+1].pMover:=pAixs;
+		aRoadRef[nRoadId].aNode[_nMoverCounter].pPremover:=pAixs;
+		aRoadRef[nRoadId].pFirstAixs:=pAixs;
+		aRoadRef[nRoadId].nMoverCounter:=aRoadRef[nRoadId].nMoverCounter+1;
+		IF (nSysType=3)THEN
+			
+			aRoadRef[nRoadId].aNode[_nMoverCounter+1].pPremover:=aRoadRef[nRoadId].aNode[1].pMover;  //07.02
+			aRoadRef[nRoadId].aNode[1].pAftermover:=pAixs;
+			// 增加前置后置同步更新  07.11
+			aRoadRef[nRoadId].aNode[_nMoverCounter+1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nMoverCounter+1].pPremover;
+			aRoadRef[nRoadId].aNode[_nMoverCounter+1].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[_nMoverCounter+1].pAftermover;
+			aRoadRef[nRoadId].aNode[1].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[1].pAftermover;
+		ELSE
+			// 增加前置后置同步更新  07.11
+			aRoadRef[nRoadId].aNode[_nMoverCounter+1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nMoverCounter+1].pPremover;
+			aRoadRef[nRoadId].aNode[_nMoverCounter+1].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[_nMoverCounter+1].pAftermover;
+			aRoadRef[nRoadId].aNode[_nMoverCounter].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nMoverCounter].pPremover;
+		END_IF
+		
+	ELSE  //中间任意位置插入
+		_bFlag:=FALSE;
+		FOR _nIndex:=1 TO _nMoverCounter BY 1  DO
+		   IF (aRoadRef[nRoadId].aNode[_nIndex].nAxisId=pAixs^.stNcTOPLC.nAxisId)THEN
+			   _bFlag:=TRUE;
+			    EXIT;
+		   END_IF
+		END_FOR
+		IF _bFlag THEN 
+			RETURN;
+		END_IF
+		// 07.01 复位前置和后置
+		pAixs^.stAxisStatus.pPremover:=null;
+        pAixs^.stAxisStatus.pAftermover:=null;
+        pAixs^.stAxisStatus.pNextRoadPremover:=null;
+		
+		_nPos:=4;  //07.03
+		//_nAxisId:=aRoadRef[nRoadId].aNode[_nMoverCounter].pMover^.stNcTOPLC.nAxisId;   // 07.03
+		// 07.01 
+		FOR _nIndex:=1 TO (_nMoverCounter-1)  DO
+			_sMessage1:=CONCAT(_sMessage1,DWORD_TO_STRING(aRoadRef[nRoadId].aNode[_nIndex].pMover^.stNcTOPLC.nAxisId));  //07.03
+			_sMessage1:=CONCAT(_sMessage1,',');  //07.03
+			IF ((pAixs^.stNcTOPLC.nCuRoadID=aRoadRef[nRoadId].aNode[_nIndex].pMover^.stNcTOPLC.nCuRoadID)AND(pAixs^.stNcTOPLC.nCuRoadID=aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stNcTOPLC.nCuRoadID) AND
+			    (pAixs^.stNcTOPLC.fActPos>aRoadRef[nRoadId].aNode[_nIndex].pMover^.stNcTOPLC.fActPos) AND (pAixs^.stNcTOPLC.fActPos<aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stNcTOPLC.fActPos))
+                OR ((pAixs^.stNcTOPLC.nCuRoadID<>aRoadRef[nRoadId].aNode[_nIndex].pMover^.stNcTOPLC.nCuRoadID)AND(pAixs^.stNcTOPLC.nCuRoadID=aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stNcTOPLC.nCuRoadID) AND
+			    (pAixs^.stNcTOPLC.fActPos>aRoadRef[nRoadId].aNode[_nIndex].pMover^.stNcTOPLC.fActPosLastRoad) AND (pAixs^.stNcTOPLC.fActPos<aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stNcTOPLC.fActPos))
+				OR ((pAixs^.stNcTOPLC.nCuRoadID=aRoadRef[nRoadId].aNode[_nIndex].pMover^.stNcTOPLC.nCuRoadID)AND(pAixs^.stNcTOPLC.nCuRoadID<>aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stNcTOPLC.nCuRoadID) AND
+			    (pAixs^.stNcTOPLC.fActPos>aRoadRef[nRoadId].aNode[_nIndex].pMover^.stNcTOPLC.fActPos) AND (pAixs^.stNcTOPLC.fActPos<aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stNcTOPLC.fActPosLastRoad)) THEN
+			//IF (pAixs^.stNcTOPLC.fActPos>aRoadRef[nRoadId].aNode[_nIndex].pMover^.stNcTOPLC.fActPos) AND (pAixs^.stNcTOPLC.fActPos<aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stNcTOPLC.fActPos) THEN 
+				 aRoadRef[nRoadId].nMoverCounter:=aRoadRef[nRoadId].nMoverCounter+1;
+				_stNode.pMover:=aRoadRef[nRoadId].aNode[_nIndex+1].pMover;
+				_nAxisId:=aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stNcTOPLC.nAxisId;   // 07.03
+				 FOR _nSubIndex:=_nMoverCounter TO (_nIndex+1) BY -1  DO
+					 aRoadRef[nRoadId].aNode[_nSubIndex+1]:=aRoadRef[nRoadId].aNode[_nSubIndex];
+				 END_FOR
+				 aRoadRef[nRoadId].aNode[_nIndex+1].nAxisId:=pAixs^.stNcTOPLC.nAxisId;
+				 aRoadRef[nRoadId].aNode[_nIndex+1].pAftermover:=aRoadRef[nRoadId].aNode[_nIndex].pMover;
+				 aRoadRef[nRoadId].aNode[_nIndex+1].pPremover:=_stNode.pMover;
+				 aRoadRef[nRoadId].aNode[_nIndex+1].pMover:=pAixs;
+				 aRoadRef[nRoadId].aNode[_nIndex].pPremover:=pAixs;
+				 aRoadRef[nRoadId].aNode[_nIndex+2].pAftermover:=pAixs;
+				 
+				 // 增加前置后置同步更新  07.11
+				aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nIndex+1].pPremover;
+				aRoadRef[nRoadId].aNode[_nIndex+1].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[_nIndex+1].pAftermover;
+				aRoadRef[nRoadId].aNode[_nIndex].pMover^.stAxisStatus.pPremover:=aRoadRef[nRoadId].aNode[_nIndex].pPremover;
+				aRoadRef[nRoadId].aNode[_nIndex+2].pMover^.stAxisStatus.pAftermover:=aRoadRef[nRoadId].aNode[_nIndex+2].pAftermover;
+				EXIT;
+			END_IF	
+		END_FOR
+		
+	END_IF
+	pAixs^.stNcTOPLC.fModuloFactor:=aRoadRef[nRoadId].fLength;
+END_IF
+
+// 07.03 增加日志
+IF GVL_MC.cDebug  THEN
+	    
+		  _sMessage:=CONCAT(DWORD_TO_STRING(pAixs^.stNcTOPLC.nAxisId),',insert');
+		  _sMessage:=CONCAT(_sMessage,',');
+		  _sMessage:=CONCAT(_sMessage,LREAL_TO_STRING(pAixs^.stNcTOPLC.fActPos));
+		  _sMessage:=CONCAT(_sMessage,',');
+		  _sMessage:=CONCAT(_sMessage,UINT_TO_STRING(_nMoverCounter));
+          _sMessage:=CONCAT(_sMessage,',');	 
+		  _sMessage:=CONCAT(_sMessage,UINT_TO_STRING(aRoadRef[nRoadId].nMoverCounter));
+   	      _sMessage:=CONCAT(_sMessage,',');
+		  _sMessage:=CONCAT(_sMessage,UINT_TO_STRING(_nPos));
+		  _sMessage:=CONCAT(_sMessage,',');
+		  _sMessage:=CONCAT(_sMessage,DWORD_TO_STRING(_nAxisId));
+		  _sMessage:=CONCAT(_sMessage,',');
+		  _sMessage:=CONCAT(_sMessage,UINT_TO_STRING(nRoadId));
+		  _sMessage:=CONCAT(_sMessage,':list');
+		  _sMessage:=CONCAT(_sMessage,_sMessage1);
+		  ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+END_IF
+
+M_InsertNode:=true;
+
+
+
+
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="M_NodeUpdate" Id="{cc07d30a-185c-4e51-afa1-4d9974b73cb5}">
+      <Declaration><![CDATA[METHOD M_NodeUpdate : BOOL
+VAR_IN_OUT
+	aRoadRef: ARRAY[1..GVl_MC.cRoadNum] OF ST_RoadRef;
+	aAxis: ARRAY[1..GVl_MC.MAX_MOVER] OF ST_Axis;
+END_VAR
+VAR
+	_nIndex: UINT;
+	_nSubIndex: UINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[_bSameCount:=FALSE;
+FOR _nIndex:=1 TO GVl_MC.cRoadNum  DO
+	 IF(_aRoadCount[_nIndex]<>aRoadRef[_nIndex].nMoverCounter)THEN 
+		  _bSameCount:=FALSE;
+		  EXIT;
+	 ELSE
+		 _bSameCount:=TRUE;
+		 
+	 END_IF
+	 //_aRoadCount[_nIndex]:=aRoadRef[_nIndex].nMoverCounter;
+END_FOR
+IF _bSameCount THEN 
+	RETURN;
+END_IF
+FOR _nIndex:=1 TO GVl_MC.cRoadNum  DO
+	 
+	 _aRoadCount[_nIndex]:=aRoadRef[_nIndex].nMoverCounter;
+END_FOR
+
+
+FOR _nIndex:=1 TO GVl_MC.cRoadNum  DO
+	
+	 IF (aRoadRef[_nIndex].nMoverCounter<>0)THEN 
+		 FOR _nSubIndex:=1 TO GVL_MC.MAX_MOVER  DO
+		     IF (aRoadRef[_nIndex].aNode[_nSubIndex].nAxisId<>0)THEN 
+				 aAxis[DWORD_TO_UINT(aRoadRef[_nIndex].aNode[_nSubIndex].nAxisId)].stAxisStatus.pPremover:=aRoadRef[_nIndex].aNode[_nSubIndex].pPremover;
+				 aAxis[DWORD_TO_UINT(aRoadRef[_nIndex].aNode[_nSubIndex].nAxisId)].stAxisStatus.pAftermover:=aRoadRef[_nIndex].aNode[_nSubIndex].pAftermover;
+			 
+			 END_IF
+		 END_FOR 
+		 
+	 END_IF
+	
+END_FOR]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FTS_AxisGroupList">
+      <LineId Id="3" Count="0" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_AxisGroupList.M_AddNode">
+      <LineId Id="3" Count="7" />
+      <LineId Id="474" Count="0" />
+      <LineId Id="11" Count="0" />
+      <LineId Id="473" Count="0" />
+      <LineId Id="475" Count="0" />
+      <LineId Id="486" Count="1" />
+      <LineId Id="12" Count="0" />
+      <LineId Id="177" Count="3" />
+      <LineId Id="13" Count="0" />
+      <LineId Id="181" Count="0" />
+      <LineId Id="14" Count="15" />
+      <LineId Id="515" Count="1" />
+      <LineId Id="30" Count="9" />
+      <LineId Id="405" Count="0" />
+      <LineId Id="403" Count="1" />
+      <LineId Id="40" Count="0" />
+      <LineId Id="402" Count="0" />
+      <LineId Id="406" Count="0" />
+      <LineId Id="476" Count="1" />
+      <LineId Id="41" Count="19" />
+      <LineId Id="517" Count="0" />
+      <LineId Id="61" Count="9" />
+      <LineId Id="408" Count="3" />
+      <LineId Id="407" Count="0" />
+      <LineId Id="470" Count="0" />
+      <LineId Id="478" Count="0" />
+      <LineId Id="71" Count="16" />
+      <LineId Id="112" Count="9" />
+      <LineId Id="412" Count="3" />
+      <LineId Id="122" Count="0" />
+      <LineId Id="416" Count="0" />
+      <LineId Id="479" Count="0" />
+      <LineId Id="136" Count="0" />
+      <LineId Id="489" Count="1" />
+      <LineId Id="488" Count="0" />
+      <LineId Id="518" Count="1" />
+      <LineId Id="524" Count="0" />
+      <LineId Id="526" Count="0" />
+      <LineId Id="528" Count="1" />
+      <LineId Id="527" Count="0" />
+      <LineId Id="137" Count="3" />
+      <LineId Id="480" Count="0" />
+      <LineId Id="141" Count="0" />
+      <LineId Id="219" Count="0" />
+      <LineId Id="435" Count="0" />
+      <LineId Id="142" Count="15" />
+      <LineId Id="88" Count="0" />
+      <LineId Id="158" Count="0" />
+      <LineId Id="90" Count="1" />
+      <LineId Id="468" Count="0" />
+      <LineId Id="455" Count="1" />
+      <LineId Id="458" Count="3" />
+      <LineId Id="531" Count="0" />
+      <LineId Id="462" Count="4" />
+      <LineId Id="481" Count="3" />
+      <LineId Id="491" Count="1" />
+      <LineId Id="467" Count="0" />
+      <LineId Id="92" Count="0" />
+      <LineId Id="471" Count="0" />
+      <LineId Id="93" Count="0" />
+      <LineId Id="239" Count="144" />
+      <LineId Id="238" Count="0" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_AxisGroupList.M_DeleteNode">
+      <LineId Id="3" Count="11" />
+      <LineId Id="299" Count="2" />
+      <LineId Id="15" Count="4" />
+      <LineId Id="21" Count="4" />
+      <LineId Id="303" Count="0" />
+      <LineId Id="26" Count="2" />
+      <LineId Id="30" Count="0" />
+      <LineId Id="36" Count="3" />
+      <LineId Id="41" Count="19" />
+      <LineId Id="114" Count="0" />
+      <LineId Id="113" Count="0" />
+      <LineId Id="61" Count="2" />
+      <LineId Id="65" Count="14" />
+      <LineId Id="81" Count="0" />
+      <LineId Id="83" Count="13" />
+      <LineId Id="281" Count="13" />
+      <LineId Id="297" Count="1" />
+      <LineId Id="280" Count="0" />
+      <LineId Id="152" Count="55" />
+      <LineId Id="260" Count="1" />
+      <LineId Id="208" Count="35" />
+      <LineId Id="151" Count="0" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_AxisGroupList.M_Init">
+      <LineId Id="3" Count="33" />
+      <LineId Id="252" Count="0" />
+      <LineId Id="37" Count="17" />
+      <LineId Id="238" Count="0" />
+      <LineId Id="240" Count="2" />
+      <LineId Id="239" Count="0" />
+      <LineId Id="55" Count="20" />
+      <LineId Id="77" Count="1" />
+      <LineId Id="220" Count="0" />
+      <LineId Id="222" Count="2" />
+      <LineId Id="230" Count="0" />
+      <LineId Id="227" Count="0" />
+      <LineId Id="229" Count="0" />
+      <LineId Id="231" Count="1" />
+      <LineId Id="221" Count="0" />
+      <LineId Id="228" Count="0" />
+      <LineId Id="79" Count="7" />
+      <LineId Id="233" Count="1" />
+      <LineId Id="236" Count="1" />
+      <LineId Id="235" Count="0" />
+      <LineId Id="87" Count="123" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_AxisGroupList.M_InsertNode">
+      <LineId Id="3" Count="8" />
+      <LineId Id="270" Count="1" />
+      <LineId Id="182" Count="0" />
+      <LineId Id="286" Count="0" />
+      <LineId Id="285" Count="0" />
+      <LineId Id="183" Count="2" />
+      <LineId Id="12" Count="0" />
+      <LineId Id="186" Count="0" />
+      <LineId Id="13" Count="12" />
+      <LineId Id="272" Count="0" />
+      <LineId Id="26" Count="4" />
+      <LineId Id="310" Count="1" />
+      <LineId Id="135" Count="8" />
+      <LineId Id="131" Count="0" />
+      <LineId Id="204" Count="3" />
+      <LineId Id="273" Count="2" />
+      <LineId Id="203" Count="0" />
+      <LineId Id="31" Count="27" />
+      <LineId Id="312" Count="1" />
+      <LineId Id="146" Count="8" />
+      <LineId Id="145" Count="0" />
+      <LineId Id="208" Count="3" />
+      <LineId Id="276" Count="2" />
+      <LineId Id="155" Count="0" />
+      <LineId Id="59" Count="22" />
+      <LineId Id="157" Count="8" />
+      <LineId Id="156" Count="0" />
+      <LineId Id="213" Count="3" />
+      <LineId Id="279" Count="2" />
+      <LineId Id="212" Count="0" />
+      <LineId Id="82" Count="0" />
+      <LineId Id="287" Count="1" />
+      <LineId Id="314" Count="4" />
+      <LineId Id="289" Count="0" />
+      <LineId Id="83" Count="25" />
+      <LineId Id="233" Count="0" />
+      <LineId Id="253" Count="15" />
+      <LineId Id="282" Count="1" />
+      <LineId Id="269" Count="0" />
+      <LineId Id="234" Count="0" />
+      <LineId Id="109" Count="6" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_AxisGroupList.M_NodeUpdate">
+      <LineId Id="3" Count="32" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

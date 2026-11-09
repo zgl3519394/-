@@ -1,0 +1,146 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_AddAxisGroup" Id="{dc475bd3-903d-4a18-a331-203b51828bc0}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_AddAxisGroup
+VAR_IN_OUT
+	stAxis: ST_Axis;
+END_VAR
+VAR_INPUT
+	bExecute: BOOL;
+	nGroupId: UINT;
+	eGroupType: E_GroupType;
+END_VAR
+VAR_OUTPUT
+	bDone: BOOL;
+	bBusy: BOOL;
+	bError: BOOL;
+	nErrorID: UDINT;
+END_VAR
+VAR
+	_bParamError: BOOL := FALSE;
+	_nStep: INT;
+	_nIndex: UINT;
+	_eGroupType: E_GroupType;
+	_stGroupRef: ST_GroupRef;
+	_fbTrig: R_TRIG;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[_fbTrig(CLK:=bExecute , Q=> );
+IF _fbTrig.Q AND (_nStep=0) THEN
+	_nStep:=10;
+
+END_IF
+
+CASE _nStep  OF 
+	0:
+	   IF NOT bExecute THEN
+			 bDone:=FALSE;
+			 bError:=FALSE;
+			 nErrorID:=0;
+		END_IF
+	    RETURN;
+
+    10:
+	    bBusy:=TRUE;
+	    bError:=FALSE;
+	    nErrorID:=0;
+	    bDone:=FALSE;
+		A_ParamCheck();
+	    _nStep:=_nStep+10;
+		IF _bParamError  THEN 
+			 _nStep:= 100;
+			 _bParamError:=FALSE;
+		END_IF
+    20:  //检查增加的ID有无重复
+	
+	    FOR _nIndex:=1 TO GVL_MC.MAX_MOVER  BY 1 DO
+			IF (GVL_MC.aGroupRef[nGroupId].aAxisId[_nIndex].nAxisId=stAxis.stNcTOPLC.nAxisId)THEN
+				_bParamError:=TRUE;
+			    nErrorID:=30798;
+				EXIT;
+			END_IF
+		END_FOR
+		IF(GVL_MC.aGroupRef[nGroupId].nCount<>0)THEN
+			IF (GVL_MC.aGroupRef[nGroupId].aAxisId[1].eGroupType<>_eGroupType)THEN
+				_bParamError:=TRUE;
+			    nErrorID:=30799;
+			END_IF
+		END_IF
+		
+	    _nStep:=_nStep+10;
+		IF _bParamError  THEN 
+			 _nStep:= 100;
+			 _bParamError:=FALSE;
+		END_IF
+	   
+	30:
+	    GVL_MC.aGroupRef[nGroupId].nCount:=GVL_MC.aGroupRef[nGroupId].nCount+1;
+		GVL_MC.aGroupRef[nGroupId].aAxisId[GVL_MC.aGroupRef[nGroupId].nCount].nAxisId:=stAxis.stNcTOPLC.nAxisId;
+		GVL_MC.aGroupRef[nGroupId].aAxisId[GVL_MC.aGroupRef[nGroupId].nCount].eGroupType:=_eGroupType;
+		GVL_MC.aGroupRef[nGroupId].eGroupType:=_eGroupType;
+		GVL_MC.aGroupRef[nGroupId].nGroupId:=nGroupId;
+		_stGroupRef .eGroupType:=_eGroupType;
+		_stGroupRef.nGroupId:=nGroupId;
+		_stGroupRef.aAxisId:=GVL_MC.aGroupRef[nGroupId].aAxisId;
+		_stGroupRef.nCount:=GVL_MC.aGroupRef[nGroupId].nCount;
+		stAxis.stAxisStatus.stGroupRef:=_stGroupRef ;
+		
+		
+		bBusy:=FALSE;
+		bDone:=TRUE;
+		IF NOT bExecute THEN
+            _nStep:=_nStep+10;
+        ELSE
+            _nStep:=0;
+        END_IF  
+		
+    40:
+		bDone:=FALSE;
+	    _nStep:=0;
+	
+   100: (************error handle***********)
+         bBusy:=FALSE;
+	     bError:=TRUE;
+	     bDone:=FALSE;
+		 _nStep:=0;
+
+
+
+END_CASE
+
+]]></ST>
+    </Implementation>
+    <Action Name="A_ParamCheck" Id="{2d6d9001-ac1e-46cb-9fb5-831c26fb6cfe}">
+      <Implementation>
+        <ST><![CDATA[IF (stAxis.stNcTOPLC.nAxisId=0)THEN
+	_bParamError:=TRUE;
+    nErrorID:=30796;
+    RETURN;
+END_IF
+
+IF (nGroupId<=0)OR (nGroupId>GVL_MC.cGroupNum)  THEN
+	_bParamError:=TRUE;
+    nErrorID:=30797;
+    RETURN;
+END_IF
+
+
+
+IF (eGroupType=E_GroupType.GROUPTYPE_NONE) THEN
+	_eGroupType:=E_GroupType.GROUPTYPE_ONEFORCE;
+ELSE
+	_eGroupType:=eGroupType;
+END_IF]]></ST>
+      </Implementation>
+    </Action>
+    <LineIds Name="FTS_AddAxisGroup">
+      <LineId Id="3" Count="82" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_AddAxisGroup.A_ParamCheck">
+      <LineId Id="2" Count="17" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

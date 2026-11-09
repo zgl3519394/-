@@ -1,0 +1,59 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_FilterMovingAverage" Id="{ecb68b35-0c37-4d88-901b-06d1a8891dfb}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_FilterMovingAverage
+VAR_INPUT
+	bEnable: BOOL;
+	nWindowsLength: UINT;
+	fInputData: LREAL;
+END_VAR
+VAR_OUTPUT
+	bActive: BOOL;
+	bError: BOOL;
+	fOutputData: LREAL;
+END_VAR
+VAR
+	_nIndex: UINT;
+	_nJIndex: UINT;
+	_nIIndex: UINT;
+	_nNum: UDINT;
+	_aRawData: ARRAY[0..nSetSize] OF LREAL;
+	_aDataTemp: ARRAY[0..nSetSize] OF LREAL;
+	_fSum: LREAL;
+END_VAR
+VAR CONSTANT
+	nSetSize: UINT := 1000;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF bEnable THEN
+	IF (nWindowsLength>=2)THEN
+			IF (_nNum>=(nWindowsLength-1))THEN 
+			   FOR _nJIndex:=1 TO (nWindowsLength-1)  DO 
+				   _aRawData[_nJIndex-1]:=_aRawData[_nJIndex];
+			   END_FOR 
+			   _aRawData[_nNum]:=fInputData;
+				_fSum:=0;
+				FOR _nIIndex:=0 TO (nWindowsLength-1)  DO 
+					_fSum:=_aRawData[_nIIndex]+_fSum;
+				END_FOR
+				fOutputData:=_fSum/nWindowsLength;
+			ELSE
+			   _nNum:=_nNum+1;     
+			   fOutputData:=_fSum/_nNum;
+			END_IF
+	ELSE
+		fOutputData:=fInputData;
+	END_IF
+	bActive:=TRUE;
+ELSE
+	bActive:=FALSE;
+	fOutputData:=0;
+END_IF]]></ST>
+    </Implementation>
+    <LineIds Name="FTS_FilterMovingAverage">
+      <LineId Id="3" Count="22" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

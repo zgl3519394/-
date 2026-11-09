@@ -1,0 +1,195 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_MCStateUpdate" Id="{700d8e7a-8c2c-4de8-8ab6-5ea01ea259c3}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_MCStateUpdate
+VAR_IN_OUT
+	stAxis: ST_Axis;
+END_VAR
+VAR_INPUT
+	bExecute: BOOL;
+END_VAR
+VAR
+	_nLastRoadID: UINT;
+	_nModuloSetTurns: DINT;
+	_fLastRoadPos :LREAL;   //07.07
+	eAxisState: E_MCAxisStates;
+	_fbTrig: R_TRIG;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[_fbTrig(CLK:=bExecute , Q=> );
+IF _fbTrig.Q THEN
+	 eAxisState:=E_MCAxisStates.MC_AXISSTATE_UNDEFINED;
+END_IF
+
+CASE  eAxisState  OF 
+	
+    E_MCAxisStates.MC_AXISSTATE_UNDEFINED:
+	       stAxis.stAxisStatus.bStandStill:=FALSE;
+		   IF stAxis.stAxisStatus.bEnabled THEN 
+			   eAxisState:=E_MCAxisStates.MC_AXISSTATE_STANDSTILL;
+		   ELSE
+			   eAxisState:=E_MCAxisStates.MC_AXISSTATE_DISABLED;
+			   stAxis.stAxisStatus.bDisabled:=TRUE;
+		   END_IF
+        
+    E_MCAxisStates.MC_AXISSTATE_DISABLED:
+	       stAxis.stAxisStatus.bStandStill:=FALSE;
+		   stAxis.stAxisStatus.bDisabled:=TRUE;
+		   // 位置同步
+		   stAxis.stNcTOPLC.fActPos:= stAxis.stCodToNCParam.fActualPos;
+		   stAxis.stNcTOPLC.nCuRoadID:= stAxis.stCodToNCParam.nRoadID;
+		   
+		   IF _nLastRoadID<>stAxis.stNcTOPLC.nCuRoadID  AND _nLastRoadID<>0 THEN    //07.07
+			   stAxis.stNcTOPLC.fActPosLastRoad:=_fLastRoadPos;  
+		   END_IF
+		   
+		   // 位置同步
+		   IF (stAxis.stAxisStatus.nLastRoadID=0)THEN  //02.27
+			   stAxis.stAxisStatus.nLastRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+		   END_IF
+		   
+		   IF stAxis.stAxisStatus.bError THEN
+				eAxisState:=E_MCAxisStates.MC_AXISSTATE_ERRORSTOP;
+		   ELSIF stAxis.stAxisStatus.bEnabled THEN 
+			   eAxisState:=E_MCAxisStates.MC_AXISSTATE_STANDSTILL;
+			   stAxis.stAxisStatus.bDisabled:=FALSE;
+			   // ***************04.24 增加环形位置同步
+			  IF  (stAxis.stAxisParam.stRoadParam.nSysType=3)THEN 
+				  stAxis.stNcTOPLC.nModuloSetTurns:=_nModuloSetTurns;  //04.24
+				  stAxis.stNcTOPLC.fActPos:=stAxis.stNcTOPLC.nModuloSetTurns*stAxis.stNcTOPLC.fModuloFactor+stAxis.stNcTOPLC.fModuloSetPos;
+			  END_IF
+		   ELSE
+			   ;
+		   END_IF
+   
+    E_MCAxisStates.MC_AXISSTATE_STANDSTILL:
+          stAxis.stAxisStatus.bStandStill:=TRUE;
+		  stAxis.stAxisStatus.nLastRoadID:=stAxis.stNcTOPLC.nCuRoadID;    //12.19
+		  _nModuloSetTurns:=stAxis.stNcTOPLC.nModuloSetTurns;  //04.24
+		  
+	      IF stAxis.stAxisStatus.bError THEN
+				eAxisState:=E_MCAxisStates.MC_AXISSTATE_ERRORSTOP;
+		  ELSIF NOT stAxis.stAxisStatus.bEnabled THEN 
+			   eAxisState:=E_MCAxisStates.MC_AXISSTATE_DISABLED;
+		  ELSIF stAxis.stAxisStatus.bStopping  THEN 
+			   eAxisState:=E_MCAxisStates.MC_AXISSTATE_STOPPING;
+		  ELSIF stAxis.stAxisStatus.bHoming  THEN
+	          eAxisState:=E_MCAxisStates.MC_AXISSTATE_HOMING;
+		  ELSIF stAxis.stAxisStatus.bDiscreteMotion  THEN 
+			   eAxisState:=E_MCAxisStates.MC_AXISSTATE_DISCRETEMOTION;
+		  ELSIF stAxis.stAxisStatus.bContinuousMotion  THEN 
+			   eAxisState:=E_MCAxisStates.MC_AXISSTATE_CONTINOUSMOTION;
+		  ELSIF stAxis.stAxisStatus.bSynchronizedMotion  THEN
+			  eAxisState:=E_MCAxisStates.MC_AXISSTATE_SYNCHRONIZEDMOTION;
+		  
+		  ELSE
+			  ;
+		  END_IF
+
+    E_MCAxisStates.MC_AXISSTATE_DISCRETEMOTION:
+	     stAxis.stAxisStatus.bStandStill:=FALSE;
+	     IF stAxis.stAxisStatus.bError THEN
+			  eAxisState:=E_MCAxisStates.MC_AXISSTATE_ERRORSTOP;
+		 ELSIF stAxis.stAxisStatus.bStopping  THEN 
+			  eAxisState:=E_MCAxisStates.MC_AXISSTATE_STOPPING;
+		 ELSIF stAxis.stAxisStatus.bContinuousMotion  THEN 
+			   eAxisState:=E_MCAxisStates.MC_AXISSTATE_CONTINOUSMOTION;
+		 ELSIF stAxis.stAxisStatus.bSynchronizedMotion  THEN
+			  eAxisState:=E_MCAxisStates.MC_AXISSTATE_SYNCHRONIZEDMOTION;
+		 ELSE
+			 IF NOT stAxis.stAxisStatus.bDiscreteMotion THEN 
+                 eAxisState:=E_MCAxisStates.MC_AXISSTATE_STANDSTILL;
+             END_IF  
+		 END_IF
+			 
+    E_MCAxisStates.MC_AXISSTATE_CONTINOUSMOTION:
+	     stAxis.stAxisStatus.bStandStill:=FALSE;
+	     IF stAxis.stAxisStatus.bError THEN
+			  eAxisState:=E_MCAxisStates.MC_AXISSTATE_ERRORSTOP;
+		 ELSIF stAxis.stAxisStatus.bStopping  THEN 
+			  eAxisState:=E_MCAxisStates.MC_AXISSTATE_STOPPING;
+		 ELSIF stAxis.stAxisStatus.bDiscreteMotion  THEN 
+			   eAxisState:=E_MCAxisStates.MC_AXISSTATE_DISCRETEMOTION;
+		 ELSIF stAxis.stAxisStatus.bSynchronizedMotion  THEN
+			  eAxisState:=E_MCAxisStates.MC_AXISSTATE_SYNCHRONIZEDMOTION;
+		 ELSE
+			 IF NOT stAxis.stAxisStatus.bContinuousMotion THEN 
+                 eAxisState:=E_MCAxisStates.MC_AXISSTATE_STANDSTILL;
+             END_IF
+			  
+		 END_IF
+	
+	E_MCAxisStates.MC_AXISSTATE_SYNCHRONIZEDMOTION:
+	     stAxis.stAxisStatus.bStandStill:=FALSE;
+	     IF stAxis.stAxisStatus.bError THEN
+			  eAxisState:=E_MCAxisStates.MC_AXISSTATE_ERRORSTOP;
+		 ELSIF stAxis.stAxisStatus.bStopping  THEN 
+			  eAxisState:=E_MCAxisStates.MC_AXISSTATE_STOPPING;
+		 ELSIF stAxis.stAxisStatus.bDiscreteMotion  THEN 
+			   eAxisState:=E_MCAxisStates.MC_AXISSTATE_DISCRETEMOTION;
+		 ELSIF stAxis.stAxisStatus.bContinuousMotion  THEN 
+			   eAxisState:=E_MCAxisStates.MC_AXISSTATE_CONTINOUSMOTION;
+		 ELSE
+			  IF NOT stAxis.stAxisStatus.bSynchronizedMotion THEN 
+                 eAxisState:=E_MCAxisStates.MC_AXISSTATE_STANDSTILL;
+             END_IF
+		 END_IF
+		 
+	E_MCAxisStates.MC_AXISSTATE_HOMING:
+	     stAxis.stAxisStatus.bStandStill:=FALSE;
+	     IF stAxis.stAxisStatus.bError THEN
+			  eAxisState:=E_MCAxisStates.MC_AXISSTATE_ERRORSTOP;
+		 ELSIF stAxis.stAxisStatus.bStopping  THEN 
+			  eAxisState:=E_MCAxisStates.MC_AXISSTATE_STOPPING;
+		 ELSIF NOT stAxis.stAxisStatus.bHoming  THEN 
+			  eAxisState:=E_MCAxisStates.MC_AXISSTATE_STANDSTILL;
+		 ELSE
+			  ;
+		 END_IF
+		
+    E_MCAxisStates.MC_AXISSTATE_STOPPING:
+	     stAxis.stAxisStatus.bStandStill:=FALSE;
+		 
+		 IF stAxis.stAxisStatus.bError THEN                            //03.10
+			  eAxisState:=E_MCAxisStates.MC_AXISSTATE_ERRORSTOP;
+	     ELSIF NOT stAxis.stAxisStatus.bStopping THEN 
+			 eAxisState:=E_MCAxisStates.MC_AXISSTATE_STANDSTILL;
+			 
+		 END_IF
+	
+    E_MCAxisStates.MC_AXISSTATE_ERRORSTOP:
+	     stAxis.stAxisStatus.bStandStill:=FALSE;
+		 stAxis.stAxisStatus.bErrorStop:=TRUE;
+		 stAxis.stAxisStatus.nLastRoadID:=stAxis.stNcTOPLC.nCuRoadID;    //12.19
+		 _nModuloSetTurns:=stAxis.stNcTOPLC.nModuloSetTurns;  //04.24
+         IF NOT stAxis.stAxisStatus.bError THEN
+		     eAxisState:=E_MCAxisStates.MC_AXISSTATE_DISABLED;
+			 stAxis.stAxisStatus.bErrorStop:=FALSE;
+		 END_IF
+
+END_CASE
+stAxis.stAxisStatus.eMotionState:=eAxisState;
+
+// 07.07 增加roadid和pos位置保存
+_nLastRoadID:=stAxis.stNcTOPLC.nCuRoadID;  
+_fLastRoadPos:=stAxis.stNcTOPLC.fActPos;  //07.07
+
+
+]]></ST>
+    </Implementation>
+    <LineIds Name="FTS_MCStateUpdate">
+      <LineId Id="3" Count="22" />
+      <LineId Id="166" Count="0" />
+      <LineId Id="174" Count="1" />
+      <LineId Id="167" Count="0" />
+      <LineId Id="26" Count="125" />
+      <LineId Id="173" Count="0" />
+      <LineId Id="172" Count="0" />
+      <LineId Id="152" Count="1" />
+      <LineId Id="170" Count="0" />
+      <LineId Id="169" Count="0" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

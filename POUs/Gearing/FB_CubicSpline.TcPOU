@@ -1,0 +1,114 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_CubicSpline" Id="{ca838463-0916-4677-b4c9-da0395afefd1}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_CubicSpline
+VAR_INPUT
+	nSize: INT;
+	eSplineType: E_SplineType;
+	faX: ARRAY[0..5] OF LREAL;
+	faY: ARRAY[0..5] OF LREAL;
+END_VAR
+VAR
+	_nIndex: INT;
+	_faH: ARRAY[0..5] OF LREAL;
+	_faMatrix_A: ARRAY[0..(cArraySize - 1)] OF LREAL;
+	_faMatrix_B: ARRAY[0..(cArraySize - 1)] OF LREAL;
+	_faMatrix_C: ARRAY[0..(cArraySize - 1)] OF LREAL;
+	_faMatrix_D: ARRAY[0..(cArraySize - 1)] OF LREAL;
+	_faMatrix_ai: ARRAY[0..(cArraySize - 1)] OF LREAL;
+	_faMatrix_bi: ARRAY[0..(cArraySize - 1)] OF LREAL;
+	_faMatrix_ci: ARRAY[0..(cArraySize - 1)] OF LREAL;
+	_faMatrix_di: ARRAY[0..(cArraySize - 1)] OF LREAL;
+	_faMatrix_E: ARRAY[0..(cArraySize - 1)] OF LREAL;
+	_fTDMA: FB_TDMA;
+END_VAR
+VAR CONSTANT
+	cArraySize: INT := 5;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+
+//计算步长即数据点区间
+
+FOR _nIndex:=0 TO (nSize-1)  DO 
+	_faH[_nIndex]:=faX[_nIndex+1]-faX[_nIndex+1];
+END_FOR
+
+
+
+IF (eSplineType=E_SplineType.SPLINE_NATURAL) THEN        //自然边界
+	A_Natural();
+	
+ELSIF (eSplineType=E_SplineType.SPLINE_FIXEDBOUNDARY) THEN    //固定边界
+	A_FixedBoundery();
+		
+ELSIF (eSplineType=E_SplineType.SPLINE_NONODEBOUNDARY) THEN    //固定边界			
+    A_NoNodeBoundery();	
+	
+ELSE    //非节点边界
+   A_Natural();
+	
+END_IF]]></ST>
+    </Implementation>
+    <Action Name="A_FixedBoundery" Id="{f94c4935-2702-4491-8fbf-ccbf49b9ad03}">
+      <Implementation>
+        <ST><![CDATA[// 计算A,B,C,D矩阵
+FOR _nIndex:=0 TO (nSize-3)  DO 
+	_faMatrix_A[_nIndex]:=_faH[_nIndex];
+	_faMatrix_B[_nIndex]:=2*(_faH[_nIndex]+_faH[_nIndex+1]);
+	_faMatrix_C[_nIndex+1]:=_faH[_nIndex+1];
+END_FOR
+
+FOR _nIndex:=0 TO (nSize-3)  DO 
+	
+	_faMatrix_D[_nIndex]:= 6*((faY[nSize+_nIndex+2]-faY[nSize+_nIndex+1])/_faH[_nIndex+1]-(faY[nSize+_nIndex+1]-faY[nSize+_nIndex])/_faH[_nIndex]);
+	
+END_FOR
+
+//计算M矩阵
+(*_fTDMA(
+			nDimension:=nSize-3 , 
+			faMatrix_A:=_faMatrix_A, 
+			faMatrix_B:=_faMatrix_B , 
+			faMatrix_C:=_faMatrix_C, 
+			faMatrix_D:=_faMatrix_D , 
+			faMatrix_X=>_faMatrix_E );*)
+					
+// 修正M矩阵M0,Mn
+
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_Natural" Id="{b7f624c7-c3b0-4101-933a-ef59d0e30a28}">
+      <Implementation>
+        <ST><![CDATA[FOR _nIndex:=0 TO (nSize-3)  DO 
+	_faMatrix_A[_nIndex]:=_faH[_nIndex];
+	_faMatrix_B[_nIndex]:=2*(_faH[_nIndex]+_faH[_nIndex+1]);
+	_faMatrix_C[_nIndex+1]:=_faH[_nIndex+1];
+	
+END_FOR]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_NoNodeBoundery" Id="{c9e214ba-d42a-4696-9594-069d51f0aece}">
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Action>
+    <LineIds Name="FB_CubicSpline">
+      <LineId Id="3" Count="21" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CubicSpline.A_FixedBoundery">
+      <LineId Id="2" Count="23" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CubicSpline.A_Natural">
+      <LineId Id="2" Count="4" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CubicSpline.A_NoNodeBoundery">
+      <LineId Id="1" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

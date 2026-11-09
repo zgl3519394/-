@@ -1,0 +1,145 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_MCCamTableSelect" Id="{e487d5e5-3cc6-4cb9-8fc3-b14968786123}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_MCCamTableSelect
+VAR_IN_OUT
+	stMasterAxis: ST_Axis;
+	stSlaveAxis: ST_Axis;
+	stCamTable: ST_CamRef;
+END_VAR
+VAR_INPUT
+	bExecute: BOOL;
+	bPeriodic: BOOL;
+	bMasterAbsolute: BOOL;
+	bSlaveAbsolute: BOOL;
+	nCamTableID: UINT;
+END_VAR
+VAR_OUTPUT
+	bDone: BOOL;
+	bBusy: BOOL;
+	bError: BOOL;
+	nErrorID: UDINT;
+	stCamTableID: ST_CamID;
+END_VAR
+VAR
+	_bPathCalDone: BOOL := FALSE;
+	_bMaterCamError: BOOL := FALSE;
+	_bParamError: BOOL := FALSE;
+	_nStep: INT;
+	_nIndex: UINT;
+	_nPointNum: UINT;
+	_nLength: UINT;
+	_stCamMasterParam: ST_CamMasterParam;
+	_stPathRef: ST_PathRef;
+	_stNoPathRef: ST_PathRef;
+	_stCamTable: ST_CamCollection;
+	_fbTrig: R_TRIG;
+	_fbDoneTon: TON;
+END_VAR
+VAR CONSTANT
+	tcDoneTime: TIME := TIME#100ms;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[_fbTrig(CLK:=bExecute , Q=> );
+IF _fbTrig.Q AND (_nStep=0)THEN
+	_nStep:=10;
+	
+END_IF
+
+CASE _nStep  OF 
+	0:
+	    IF NOT bExecute  THEN
+		   bDone:=FALSE; 
+		   bError:=FALSE;
+		   nErrorID:=0;
+	    END_IF
+	    RETURN ;
+		
+	10:
+	    bBusy:=TRUE;        
+        bDone:=FALSE;      
+        bError :=FALSE;  
+        nErrorID :=0;  
+		_nStep:=_nStep+10;
+		A_ParamCheck();
+		IF _bParamError THEN
+			_nStep:=100;
+			_bParamError:=FALSE;
+		END_IF
+	20:
+	    stCamTableID.bPeriodic:=bPeriodic;
+		stCamTableID.bSlaveAbsolute:=bSlaveAbsolute;
+		stCamTableID.bMasterAbsolute:=bMasterAbsolute;
+	    stCamTableID.fMasterStartPos:=stCamTable.fStartPos;
+		stCamTableID.fMasterEndPos:=stCamTable.fEndPos;
+		stCamTableID.nPointType:=stCamTable.nPointType;
+		stCamTableID.pPointArry:=stCamTable.pPointArry;
+		stCamTableID.nElements:=stCamTable.nElements;
+		stCamTableID.fMasterMaxVelo:=stCamTable.fMasterMaxVelo;
+		IF (stCamTable.nPointType=1)THEN
+		   stCamTableID.fSlaveStartPos:=0;
+		   stCamTableID.fSlaveEndPos:=0;
+	    ELSE
+			stCamTableID.fSlaveStartPos:=0;
+		    stCamTableID.fSlaveEndPos:=0;
+		END_IF 
+	    _nStep:=_nStep+10;
+	30:
+        bBusy:=FALSE;
+	    bDone:=TRUE; 
+		//_fbDoneTon(IN:=FALSE , PT:= tcDoneTime, Q=> , ET=> );
+		IF bExecute THEN 
+			_nStep:=0;
+		ELSE
+			_nStep:=_nStep+10;
+		END_IF
+	   
+   
+    40:
+       // _fbDoneTon(IN:=TRUE , PT:= tcDoneTime, Q=> , ET=> );
+		//IF _fbDoneTon.Q  THEN 
+	        bDone:=FALSE;   
+            _nStep:=0;
+			_fbDoneTon(IN:=FALSE , PT:= tcDoneTime, Q=> , ET=> );
+      //  END_IF 
+	
+	100:
+	     bBusy:=FALSE;
+	     bError:=TRUE;
+	     stSlaveAxis.stAxisStatus.bError:=TRUE;
+		 stSlaveAxis.stAxisStatus.nErrorId:=nErrorID;
+	     _nStep:=0;
+		
+END_CASE ]]></ST>
+    </Implementation>
+    <Action Name="A_ParamCheck" Id="{c334c31c-8a6c-49ce-a66c-e60bd5e0d5c1}">
+      <Implementation>
+        <ST><![CDATA[//参数校验
+
+IF (ADR(stMasterAxis)=0)THEN 
+	_bParamError:=TRUE;  
+	nErrorID:=30414;
+    RETURN;	
+END_IF
+IF ADR(stMasterAxis)=ADR(stSlaveAxis)THEN
+	_bParamError:=TRUE;  
+     nErrorID :=30415;	    
+END_IF
+
+IF (nCamTableID<>stCamTable.nCamTableID)THEN
+	_bParamError:=TRUE;
+	nErrorID :=30416;
+END_IF]]></ST>
+      </Implementation>
+    </Action>
+    <LineIds Name="FTS_MCCamTableSelect">
+      <LineId Id="3" Count="69" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_MCCamTableSelect.A_ParamCheck">
+      <LineId Id="2" Count="14" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

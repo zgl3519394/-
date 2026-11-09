@@ -1,0 +1,185 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_JosnNode" Id="{c49bb90f-2113-4830-9b0a-152336171e1c}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_JosnNode
+VAR_INPUT
+	bExecute: BOOL;
+	nSysType: UINT;
+END_VAR
+VAR_OUTPUT
+	bBusy: BOOL;
+	bDone: BOOL;
+	bError: BOOL;
+	nErrorId: UDINT;
+END_VAR
+VAR_IN_OUT
+	aAxis: ARRAY[1..GVL_MC.MAX_MOVER] OF ST_Axis;
+END_VAR
+VAR
+	_nStep: INT;
+	_fbMoverJson: FTS_JsonReadMover;
+	_fbSystemJson: FTS_JsonReadSystem;
+	_fbTrackJson: FTS_JsonReadTrack;
+	_fbAxisGroupList: FTS_AxisGroupList;
+	_fbTrig: R_TRIG;
+	_fbDisenbleNodeHandle: FTS_DisenbleNodeHandle;
+	_fbDoneTon: TON;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[_fbTrig(CLK:=bExecute , Q=> );
+IF _fbTrig.Q AND( _nStep =0)THEN
+	 _nStep :=5;
+END_IF
+
+CASE  _nStep  OF 
+	0:
+        IF NOT bExecute THEN 
+			bError:=FALSE;
+			nErrorId:=0;
+		END_IF
+	
+	5:   
+	    bBusy:=TRUE;
+		bDone:=FALSE;
+	    IF  aAxis[1].stNcTOPLC.nCuRoadID <> 0 THEN 
+	        _nStep :=10;
+			
+		END_IF 
+		
+    10:  
+	    _fbMoverJson(
+				bExecute:=TRUE , 
+				sJsonPath:='C:\Users\config_files\mover_config.json' , 
+				bBusy=> , 
+				bDone=> , 
+				bError=> , 
+				nErrorId=> , 
+				hrErrorCode=> , 
+				aMovers:= GVL_MC.aMover , 
+				aAxis:=aAxis );
+        IF NOT _fbMoverJson.bError THEN 
+                IF NOT _fbMoverJson.bBusy AND NOT _fbMoverJson.bDone THEN 
+					    _nStep :=20; 
+						 _fbMoverJson(
+								bExecute:=FALSE , 
+								sJsonPath:='C:\Users\config_files\mover_config.json' , 
+								bBusy=> , 
+								bDone=> , 
+								bError=> , 
+								nErrorId=> , 
+								hrErrorCode=> , 
+								aMovers:= GVL_MC.aMover , 
+								aAxis:=aAxis );
+                END_IF
+        ELSE
+			 nErrorId:=_fbMoverJson.nErrorId;
+			 _nStep :=100;
+			 _fbMoverJson(bExecute:=FALSE,aMovers:= GVL_MC.aMover,aAxis:=aAxis);  //07.02
+        END_IF
+ 
+    20:
+	   _fbSystemJson(
+					bExecute:=TRUE , 
+					sJsonPath:='C:\Users\config_files\system_config.json' , 
+					bBusy=> , 
+					bDone=> , 
+					bError=> , 
+					nErrorId=> , 
+					hrErrorCode=> , 
+					//aMovers:= , 
+					aAxis:=aAxis);
+		IF NOT _fbSystemJson.bError THEN 
+                IF NOT _fbSystemJson.bBusy AND NOT  _fbSystemJson.bDone THEN 
+				
+                       _nStep :=30; 
+					   _fbSystemJson(
+								bExecute:=FALSE , 
+								sJsonPath:='C:\Users\config_files\system_config.json' , 
+								bBusy=> , 
+								bDone=> , 
+								bError=> , 
+								nErrorId=> , 
+								hrErrorCode=> , 
+								//aMovers:= , 
+								aAxis:=aAxis);
+                END_IF
+        ELSE
+			 nErrorId:=_fbSystemJson.nErrorId;
+			 _nStep :=100;
+			 _fbSystemJson(bExecute:=FALSE , aAxis:=aAxis);  //07.02
+        END_IF
+		
+		
+	30:
+		(*_fbAxisGroupList(
+			aRoadRef:=GVL_MC.aRoadRef , 
+			aAxis:=aAxis  , 
+			bExecute:= TRUE, 
+			sJsonPath:= 'C:\Users\config_files\track_config.json' , 
+			bDone=> , 
+			bBusy=> , 
+			bError=> , 
+			nErrorID=> , 
+			hrErrorCode=> );*)
+		_fbAxisGroupList.bExecute:=TRUE;
+		_fbAxisGroupList.sJsonPath:='C:\Users\config_files\track_config.json' ;
+		_fbAxisGroupList.M_Init(aRoadRef:=GVL_MC.aRoadRef , aAxis:=aAxis);
+		
+		IF NOT _fbAxisGroupList.bError THEN 
+                IF NOT _fbAxisGroupList.bBusy AND NOT  _fbAxisGroupList.bDone THEN 
+                       _nStep :=40; 
+					   (*_fbAxisGroupList(
+							aRoadRef:=GVL_MC.aRoadRef , 
+							aAxis:=aAxis  , 
+							bExecute:= FALSE, 
+							sJsonPath:= 'C:\Users\config_files\track_config.json' , 
+							bDone=> , 
+							bBusy=> , 
+							bError=> , 
+							nErrorID=> , 
+							hrErrorCode=> );*)
+						_fbAxisGroupList.bExecute:=FALSE;
+                        _fbAxisGroupList.M_Init(aRoadRef:=GVL_MC.aRoadRef , aAxis:=aAxis);	
+                END_IF
+        ELSE
+			 nErrorId:=_fbAxisGroupList.nErrorId;
+			 _nStep :=100;
+			 _fbAxisGroupList.bExecute:=FALSE;
+             _fbAxisGroupList.M_Init(aRoadRef:=GVL_MC.aRoadRef , aAxis:=aAxis);
+        END_IF
+	
+	40:
+        bBusy:=FALSE;
+	    bDone:=TRUE; 
+		_fbDoneTon(IN:=FALSE , PT:= T#100MS, Q=> , ET=> );
+	   _nStep:=_nStep+10;
+   
+   50:
+        _fbDoneTon(IN:=TRUE , PT:= T#100MS, Q=> , ET=> );
+		IF _fbDoneTon.Q  THEN 
+	        bDone:=FALSE;   
+            _nStep:=0;
+			_fbDoneTon(IN:=FALSE , PT:= T#100MS, Q=> , ET=> );
+        END_IF 	
+    100:
+	     bBusy:=FALSE;
+		 bBusy:=FALSE;
+		 bDone:=FALSE;   
+	     bError:=TRUE;
+         _nStep:=0;
+	
+END_CASE
+//04.21注释
+//_fbAxisGroupList.M_NodeUpdate( aRoadRef:=GVL_MC.aRoadRef , aAxis:=aAxis); 
+//_fbDisenbleNodeHandle(aRoadRef:=GVL_MC.aRoadRef , aAxis:=aAxis , nSysType:=nSysType );
+
+
+]]></ST>
+    </Implementation>
+    <LineIds Name="FTS_JosnNode">
+      <LineId Id="3" Count="147" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

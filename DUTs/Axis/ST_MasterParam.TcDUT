@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_MasterParam" Id="{39a2e362-02e7-48fb-aba4-245804338adc}">
+    <Declaration><![CDATA[TYPE ST_MasterParam :
+STRUCT
+	fStartPos: LREAL;
+	fEndPos: LREAL;
+	fVelocity: LREAL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

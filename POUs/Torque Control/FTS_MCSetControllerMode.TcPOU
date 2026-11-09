@@ -1,0 +1,168 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_MCSetControllerMode" Id="{cc3bfcbc-309f-40ed-80f5-b82728d49258}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_MCSetControllerMode
+VAR_IN_OUT
+	stAxis: ST_Axis;
+END_VAR
+VAR_INPUT
+	bExecute: BOOL;
+	eControlMode: E_ControlMode;
+END_VAR
+VAR_OUTPUT
+	bDone: BOOL;
+	bBusy: BOOL;
+	bError: BOOL;
+	nErrorId: UDINT;
+END_VAR
+VAR
+	_nStep: INT;
+	_fbTrig: R_TRIG;
+	_fbDoneTon: TON;
+	_fbWaitTon: TON;
+	_fbFilterTon: TON;
+END_VAR
+VAR CONSTANT
+	///maxvelocity  torque mode 
+	fVelocity: LREAL := 50000;
+	tcDoneTime: TIME := TIME#100ms;
+	tcWaitTime: TIME := TIME#83m20s0ms;
+	tcFilterTime: TIME := TIME#500ms;
+	fDealtVelo: LREAL := 50000;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[_fbTrig(CLK:=bExecute , Q=> );
+IF _fbTrig.Q AND stAxis.stAxisStatus.bEnabled AND (_nStep=0)THEN
+	_nStep:=10;
+END_IF
+
+// postion update
+IF bExecute AND (eControlMode=E_ControlMode.CONTROLLER_MODE_POSITION)AND(_nStep<>0) THEN 
+	stAxis.stNcTOPLC.fActPos:=stAxis.stCodToNCParam.fActualPos+stAxis.stNcTOPLC.nModuloSetTurns*stAxis.stNcTOPLC.fModuloFactor;
+    stAxis.stNcTOPLC.fTargetPos:=stAxis.stCodToNCParam.fActualPos;
+	stAxis.stNcTOPLC.fSetPos:=stAxis.stNcTOPLC.fActPos;
+	stAxis.stNcTOPLC.fModuloSetPos:=stAxis.stCodToNCParam.fActualPos;
+	stAxis.stNcTOPLC.nCuRoadID:=stAxis.stCodToNCParam.nRoadID;
+END_IF
+
+
+CASE  _nStep OF 
+   0:
+        RETURN;
+	  
+	  
+   10:
+        bBusy:=TRUE;
+		bDone:=FALSE;
+		bError:=FALSE;
+		nErrorId:=0;
+		_fbDoneTon(IN:=FALSE, PT:=tcDoneTime , Q=> , ET=> );
+		_fbWaitTon(IN:=FALSE , PT:=tcWaitTime , Q=> , ET=> );
+		IF (eControlMode=E_ControlMode.CONTROLLER_MODE_TORQUE) THEN 
+			   _nStep:=20;
+		ELSIF (eControlMode=E_ControlMode.CONTROLLER_MODE_VELOCITY) THEN 
+			 _nStep:=30; 
+		  
+		ELSIF(eControlMode=E_ControlMode.CONTROLLER_MODE_POSITION) THEN 
+			  _nStep:=40 ;
+			  _fbFilterTon(IN:=FALSE , PT:=tcFilterTime , Q=> , ET=> );
+		  
+		ELSE
+			  _nStep:=0;
+			  bBusy:=FALSE;
+		      bDone:=FALSE;
+		      bError:=FALSE;
+		      nErrorId:=0;
+		END_IF
+    
+    20:   // torque mode 
+	    IF NOT stAxis.stAxisStatus.bHoming AND NOT stAxis.stAxisStatus.bStopping AND NOT stAxis.stAxisStatus.bError THEN
+			stAxis.stNcTOPLC.nOpModeDWord:=INT_TO_WORD(E_ControlMode.CONTROLLER_MODE_TORQUE);
+			 bBusy:=FALSE;
+		     bDone:=TRUE;
+			 _nStep:=90;
+			 _fbDoneTon(IN:=FALSE, PT:=tcDoneTime , Q=> , ET=> );
+	    ELSE
+			 nErrorId:=30776;
+			 _nStep:=100;
+		
+		END_IF
+	 
+	30:
+	   IF NOT stAxis.stAxisStatus.bHoming AND NOT stAxis.stAxisStatus.bStopping AND NOT stAxis.stAxisStatus.bError THEN
+			stAxis.stNcTOPLC.nOpModeDWord:=INT_TO_WORD(E_ControlMode.CONTROLLER_MODE_VELOCITY);
+			 bBusy:=FALSE;
+		     bDone:=TRUE;
+			 _nStep:=90;
+			 _fbDoneTon(IN:=FALSE, PT:=tcDoneTime , Q=> , ET=> );
+	    ELSE
+			 nErrorId:=30777;
+			 _nStep:=100;
+		
+		END_IF
+
+	40:
+		IF NOT stAxis.stAxisStatus.bHoming AND NOT stAxis.stAxisStatus.bStopping AND NOT stAxis.stAxisStatus.bError THEN
+			
+		    _fbFilterTon(IN:=ABS(stAxis.stCodToNCParam.fActualVel)>fVelocity , PT:=tcFilterTime , Q=> , ET=> );
+			IF _fbFilterTon.Q   THEN
+			//IF (ABS(stAxis.stCodToNCParam.fActualVel)>fVelocity)THEN
+			
+				nErrorId:=30778;
+			    _nStep:=100;
+				_fbFilterTon(IN:=FALSE , PT:=tcFilterTime , Q=> , ET=> );
+				//;
+				
+			ELSE
+				IF (ABS(stAxis.stCodToNCParam.fActualVel)<fDealtVelo) AND  (stAxis.stAxisStatus.eMotionState=E_MCAxisStates.MC_AXISSTATE_STANDSTILL) THEN
+					stAxis.stNcTOPLC.nOpModeDWord:=UINT_TO_WORD(E_ControlMode.CONTROLLER_MODE_VELOCITY);
+					bBusy:=FALSE;
+					bDone:=TRUE;
+					_nStep:=90;
+					stAxis.stNcTOPLC.fSetTorque:=0;
+					
+					_fbDoneTon(IN:=FALSE, PT:=tcDoneTime , Q=> , ET=> );
+				END_IF
+			   _fbWaitTon(IN:=TRUE , PT:=tcWaitTime , Q=> , ET=> );
+			   IF _fbWaitTon.Q THEN
+				   nErrorId:=30779;
+			       _nStep:=100;
+				   _fbWaitTon(IN:=FALSE, PT:=tcWaitTime , Q=> , ET=> );
+			   END_IF
+			END_IF
+		
+	    ELSE
+			 nErrorId:=16#725D;
+			 _nStep:=100;
+		
+		END_IF
+  
+    90:  
+       _fbDoneTon(IN:=TRUE, PT:=tcDoneTime , Q=> , ET=> );
+       IF _fbDoneTon.Q THEN
+		  bDone:=FALSE;
+		  _fbDoneTon(IN:=FALSE, PT:=tcDoneTime , Q=> , ET=> );
+		  _nStep:=0;
+	   END_IF
+
+
+   100:
+		 bBusy:=FALSE;
+	     bError:=TRUE;
+	     stAxis.stAxisStatus.bError:=TRUE;
+		
+		 stAxis.stAxisStatus.nErrorId:=nErrorId;
+		 
+	     _nStep:=0;
+
+END_CASE
+
+]]></ST>
+    </Implementation>
+    <LineIds Name="FTS_MCSetControllerMode">
+      <LineId Id="3" Count="125" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

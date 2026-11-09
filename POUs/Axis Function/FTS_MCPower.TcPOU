@@ -1,0 +1,119 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_MCPower" Id="{8d5b9bd1-cd27-4ccd-9f19-6008bcca462f}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_MCPower
+VAR_IN_OUT
+	stAxis: ST_Axis;
+END_VAR
+VAR_INPUT
+	bEnable: BOOL;
+	bEnablePositive: BOOL;
+	bEnableNegative: BOOL;
+END_VAR
+VAR_OUTPUT
+	bStatus: BOOL;
+	bBusy: BOOL;
+	bActive: BOOL;
+	bError: BOOL;
+	nErrorID: UDINT;
+END_VAR
+VAR
+	_bEnabled: BOOL := FALSE;
+	_nStep: INT := 0;
+	_fbTon: TON;
+END_VAR
+VAR CONSTANT
+	tcWaitTime: TIME := TIME#100ms;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[stAxis.stAxisStatus.bPower:=bEnable;
+
+CASE _nStep OF 
+	0:(* check axis satus*)
+	   
+	   bError:=FALSE;
+	   nErrorID:=0;
+	   IF (stAxis.stAxisStatus.eMotionState=E_MCAxisStates.MC_AXISSTATE_ERRORSTOP)THEN
+		   RETURN;
+	   ELSE
+	       _nStep:=10;
+	   END_IF
+	   
+   10:
+       stAxis.stAxisStatus.bSoftPositiveLimit:=bEnablePositive;
+	   stAxis.stAxisStatus.bSoftNegativeLimit:=bEnableNegative;
+	   
+       IF (bEnable XOR _bEnabled)THEN 
+		   bBusy:=TRUE;
+	       bActive:=TRUE;
+	       bError:=FALSE;
+		   nErrorID:=0;
+		   IF bEnable THEN
+			  _nStep:=20; 
+		   ELSE
+			  _nStep:=50; 
+		   END_IF
+	  
+	    ELSE
+		   RETURN;
+	    END_IF
+		//04.11 增加轴ID不为0判断
+		(*IF (stAxis.stNcTOPLC.nAxisId=0)THEN
+			_nStep:=100; 
+			nErrorID:=28672;
+		END_IF*) //04.30
+    20: (*Axis Enable*)
+	    stAxis.stPLCTONC.nControlWord:=16#01;
+	    _fbTon(IN:=FALSE, PT:=tcWaitTime  , Q=> , ET=> );
+	    _nStep:=30; 
+	
+	30:
+	  
+	     bStatus:=TRUE;
+		 _bEnabled:=TRUE;
+			   
+		 stAxis.stAxisStatus.bEnabled:=TRUE;
+		 stAxis.stAxisStatus.bPower:=TRUE;
+	     _nStep:=10;
+	     _fbTon(IN:=FALSE, PT:=tcWaitTime  , Q=> , ET=> );
+	
+	   
+	 50:(*Axis disenable*)
+	    stAxis.stPLCTONC.nControlWord:=16#02;
+	    _fbTon(IN:=FALSE, PT:=tcWaitTime  , Q=> , ET=> );
+	    _nStep:=60;
+	 
+     60:
+	 
+		   bStatus:=FALSE;
+		   _bEnabled:=FALSE;
+		   bBusy:=FALSE;
+		   stAxis.stAxisStatus.bEnabled:=FALSE;
+		   stAxis.stAxisStatus.bHomed:=FALSE;
+		   bActive:=FALSE;
+		   _fbTon(IN:=FALSE, PT:=tcWaitTime  , Q=> , ET=> );
+			stAxis.stAxisStatus.bPower:=FALSE;
+		   _nStep:=10;
+	 
+	 100:(*error handle*)
+	     bStatus:=FALSE;
+	     _bEnabled:=FALSE;
+		 bBusy:=FALSE;
+		  bError:=TRUE;
+		 stAxis.stAxisStatus.bError:=TRUE;
+		 stAxis.stAxisStatus.bPower:=FALSE;
+		 stAxis.stAxisStatus.bEnabled:=FALSE;
+	     bError:=TRUE;
+		 bActive:=FALSE;
+		 stAxis.stAxisStatus.nErrorId:=nErrorID;
+		_nStep:=0; 
+	 
+END_CASE]]></ST>
+    </Implementation>
+    <LineIds Name="FTS_MCPower">
+      <LineId Id="3" Count="81" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

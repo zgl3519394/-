@@ -1,0 +1,1489 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_MCCamIn" Id="{f4e720b7-2b10-42cc-a9fc-674f650f2524}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_MCCamIn
+VAR_IN_OUT
+	stMasterAxis: ST_Axis;
+	stSlaveAxis: ST_Axis;
+END_VAR
+VAR_INPUT
+	bExecute: BOOL;
+	bCollsionNotValid: BOOL := FALSE;
+	bAvoidReversal: BOOL := FALSE;
+	fMasterOffset: LREAL;
+	fSlaveOffset: LREAL;
+	fMasterScaling: LREAL := 1.0;
+	fSlaveScaling: LREAL := 1.0;
+	fPosition: LREAL;
+	fAcceleration: LREAL;
+	fDeceleration: LREAL;
+	fJerk: LREAL;
+	fGap: LREAL;
+	eStartMode: E_StartMode;
+	eDirection: E_Direction;
+	stCamTableID: ST_CamID;
+END_VAR
+VAR_OUTPUT
+	bInSync: BOOL;
+	bBusy: BOOL;
+	///单周期执行完成
+	bEndOfProfile: BOOL;
+	bActive: BOOL;
+	bCommandAborted: BOOL;
+	bError: BOOL;
+	nErrorID: UDINT;
+END_VAR
+VAR
+	_bPathCalDone: BOOL := FALSE;
+	_bSegDone: BOOL := FALSE;
+	_bParamError: BOOL := FALSE;
+	_bCamInError: BOOL := FALSE;
+	_bCamInSlaveError: BOOL := FALSE;
+	_bAbsExecute: BOOL;
+	_bMasterClib: BOOL := FALSE;
+	_nStep: INT;
+	_nIndex: UINT;
+	_nSubIndex: UINT;
+	_nPointNum: UINT;
+	_nFindIndex: UINT;
+	_nCuPointIndex: UINT;
+	_nSysType: UINT;
+	/// _nErrorId        : UDINT;
+	_fSetVelo: LREAL;
+	_fAcc: LREAL;
+	_fStartPos: LREAL;
+	_fMasterStartPos: LREAL;
+	_fStartPos_1: LREAL;
+	_fMasterStartPos_1: LREAL;
+	_fClampLength: LREAL;
+	_fGap: LREAL;
+	_fDistance: LREAL;
+	_fNcTime: LREAL;
+	_fPostion: LREAL;
+	_fMaxPos: LREAL;
+	_fMinPos: LREAL;
+	_fMaxVel: LREAL;
+	_fMaxAcc: LREAL;
+	_fMaxAcc_1: LREAL;
+	_fMaxJec_1: LREAL;
+	_fMaxJec: LREAL;
+	_fDec: LREAL;
+	_fSetPos: LREAL;
+	_fPrePosition: LREAL;
+	_Dealt_X: LREAL;
+	_fFirsCyclePos: LREAL;
+	_fClibPos: LREAL;
+	_eMotionMode: E_StartMode;
+	_eCommand: E_Command := E_Command.COMMAND_IDLE;
+	_pPremover: POINTER TO ST_Axis;
+	_stAxisNo: ST_Axis;
+	_stAxis_Point: ST_Point;
+	_stCamNoParam: ST_CamParam;
+	_fbTrig: R_TRIG;
+	///03.04
+	_fbEnbleTrig: F_TRIG;
+	_fbCamOutFtrig: F_TRIG;
+	_fbUpdateTrig: R_TRIG;
+	_fbDoneTon: TON;
+	_astCamXYVA: ARRAY[0..255] OF ST_CamXYVA;
+	_stCamXY: ST_CamXY;
+	_fbTraPlanning: FB_TrajectoryPlanning;
+	///_fbMCMoveAbsolute   :FTS_MCMoveAbsoluteSpy;
+	_fbMCMoveAbsolute: FTS_MCMoveAbsolute;
+END_VAR
+VAR CONSTANT
+	tcDoneTime: TIME := TIME#100ms;
+	cDealtGap: REAL := 2000;
+	cGapSet: LREAL := 100000;
+	cCycleTime: LREAL := 0.001;
+	cMaxCamPoints: UINT := 10;
+	cPointBuffer: UINT := 10;
+	cMasterPosDealt: LREAL := 10000;
+	cSlavePosDealt: LREAL := 10000;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+// 前置、后置配置
+IF (eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+	IF (stSlaveAxis.stAxisStatus.pPremover=0)THEN 
+		_pPremover:=ADR(_stAxisNo);
+	ELSE
+		_pPremover:=stSlaveAxis.stAxisStatus.pPremover;
+	END_IF
+ELSE
+	IF (stSlaveAxis.stAxisStatus.pAftermover=0)THEN 
+		_pPremover:=ADR(_stAxisNo);
+	ELSE
+		_pPremover:=stSlaveAxis.stAxisStatus.pAftermover;
+	END_IF
+END_IF
+
+A_CommandCheck();
+
+
+CASE _nStep  OF 
+	0:
+	     IF NOT bExecute THEN 
+		   bError:=FALSE;
+		   nErrorId:=0;
+		   bEndOfProfile:=FALSE;
+		   bCommandAborted:=FALSE;
+		   _bMasterClib:=FALSE;
+		   _eCommand:=E_Command.COMMAND_IDLE;
+	     END_IF
+		 RETURN;
+	10:  
+	
+		 bBusy:=TRUE;        
+         bActive:=TRUE;      
+         bCommandAborted:=FALSE;  
+         bError        :=FALSE;  
+         nErrorID      :=0;  
+		 bEndOfProfile:=FALSE;
+		 bInSync:=TRUE;
+		 _nCuPointIndex:=0;
+		 _nStep:=_nStep+10;
+		 A_ParamCheck();
+	     IF _bParamError THEN
+			_nStep:=100;
+			_bParamError:=FALSE;
+		 END_IF
+	
+	 20:  
+	      stSlaveAxis.stAxisStatus.bSynchronizedMotion:=TRUE;
+          A_PathGenaration();
+		  IF _bPathCalDone THEN
+			  stSlaveAxis.stPLCTONC.bNcEnable:=TRUE;
+			  stSlaveAxis.stPLCTONC.eCommand:=E_Command.COMMAND_CAMIN;
+			  _eCommand:=E_Command.COMMAND_CAMIN;  
+			  stSlaveAxis.stPLCTONC.ePlanningMode:=E_PlanningMode.PLANNINGMODE_PLOYNOM5;
+			  IF (stSlaveAxis.stNcTOPLC.nCuSegIndex>=(stCamTableID.nElements-2))THEN 
+				  _nStep:=25;
+			  END_IF 
+			  IF bAvoidReversal THEN  //禁止反转报警
+                  IF stSlaveAxis.stNcTOPLC.fActVelo<0 THEN     
+				     _nStep:=100;
+			         nErrorID :=32444;
+			      END_IF
+			  END_IF 
+		  END_IF
+		  IF _bCamInError THEN
+			_nStep:=100;
+			_bCamInError:=FALSE;
+		  END_IF
+		  
+	
+	25:
+	    _nStep:=30;
+		//stSlaveAxis.stPLCTONC.eCommand:=E_Command.COMMAND_IDLE;   //12.31
+	30:
+	    (*IF stSlaveAxis.stNcTOPLC.fActVelo<0 THEN     //禁止反转报警
+				  _nStep:=100;
+			      nErrorID :=32444;
+	    END_IF*)
+		IF bAvoidReversal THEN  //禁止反转报警
+              IF stSlaveAxis.stNcTOPLC.fActVelo<0 THEN     
+				  _nStep:=100;
+			      nErrorID :=32444;
+			   END_IF
+		END_IF
+        IF (stSlaveAxis.stNcTOPLC.nAxisState=2) THEN
+			 IF NOT stCamTableID.bPeriodic  THEN   //单周期
+			       _nStep:=50;
+			       bEndOfProfile:=TRUE;
+			     
+				  _bPathCalDone:=FALSE;
+				  _bAbsExecute:=TRUE;
+				  _bMasterClib:=FALSE;
+			ELSE
+				stSlaveAxis.stPLCTONC.bNcEnable:=FALSE;
+				_bPathCalDone:=FALSE;
+				_nStep:=20;
+				_nCuPointIndex:=0;
+			END_IF
+	     END_IF
+	
+	 40:   //camout 解除同步
+	     IF (stSlaveAxis.stNcTOPLC.fActVelo>0)THEN
+			 _bAbsExecute:=TRUE;
+		 END_IF
+         stSlaveAxis.stPLCTONC.eCommand:=E_Command.COMMAND_IDLE;
+		 bEndOfProfile:=FALSE;
+		 _nStep:=50;
+		 
+	   
+	 50:
+	    stSlaveAxis.stAxisStatus.bSynchronizedMotion:=FALSE;
+	    _bAbsExecute:=FALSE;
+		IF NOT _fbMCMoveAbsolute.bError THEN
+			IF NOT _fbMCMoveAbsolute.bBusy AND  NOT _fbMCMoveAbsolute.bDone THEN
+
+				_nStep:=0;
+				stSlaveAxis.stAxisStatus.bSynchronizedMotion:=FALSE;
+				stSlaveAxis.stPLCTONC.bNcStart:=FALSE;
+				stSlaveAxis.stPLCTONC.bNcEnable:=FALSE;
+				stSlaveAxis.stAxisStatus.bMoving:=FALSE;
+				stSlaveAxis.stPLCTONC.ePlanningMode:=E_PlanningMode.PLANNINGMODE_NONE;
+				stSlaveAxis.stPLCTONC.eCommand:=E_Command.COMMAND_IDLE;
+				
+			    bBusy:=FALSE;
+			    stSlaveAxis.stAxisStatus.bMoving:=FALSE;
+				bCommandAborted:=TRUE;
+			    bInSync:=FALSE;
+			    bActive:=FALSE;
+				_bAbsExecute:=FALSE;
+				_bPathCalDone:=FALSE;
+				 //bEndOfProfile:=false;
+			     _bMasterClib:=FALSE;
+			END_IF
+		ELSE
+			_nStep:=100;
+			nErrorID :=_fbMCMoveAbsolute.nErrorId;
+		END_IF
+	
+	 80:  // disable stop 
+	     IF (stSlaveAxis.stAxisStatus.nNcCycleCounter<>0)THEN 
+			 A_StopPathGeneration();
+			 stSlaveAxis.stPLCTONC.bNcStart:=TRUE;
+			 stSlaveAxis.stPLCTONC.eCommand:=E_Command.COMMAND_ABSOLUTE;
+			 stSlaveAxis.stPLCTONC.ePlanningMode:=E_PlanningMode.PLANNINGMODE_TSHAPED;
+			 _nStep:=_nStep+10;
+	     ELSE
+			 _nStep:=95;
+			 
+		 END_IF 
+		  
+    90:  
+         IF (stSlaveAxis.stNcTOPLC.nAxisState=2)THEN
+			 stSlaveAxis.stPLCTONC.bNcEnable:=FALSE;
+		     stSlaveAxis.stPLCTONC.bNcStart:=FALSE;
+			 
+			 _nStep:=95;
+	      END_IF 
+	95:
+	      bBusy:=FALSE;
+		  bInSync:=FALSE;
+		  bActive:=FALSE;
+		  bEndOfProfile:=FALSE;
+		  bCommandAborted:=TRUE;
+		  stSlaveAxis.stAxisStatus.bSynchronizedMotion:=FALSE;
+		  stSlaveAxis.stPLCTONC.eCommand:=E_Command.COMMAND_IDLE;
+		  stSlaveAxis.stPLCTONC.ePlanningMode:=E_PlanningMode.PLANNINGMODE_NONE;
+		  _bPathCalDone:=FALSE;
+		  _bMasterClib:=FALSE;
+	      _nStep:=0;
+	
+	100:  //error handle 
+	     bBusy:=FALSE;
+	     bError:=TRUE;
+	     bActive:=FALSE;
+	     bInSync:=FALSE;
+		 bEndOfProfile:=FALSE;
+	     stSlaveAxis.stAxisStatus.bError:=TRUE;
+		 stSlaveAxis.stAxisStatus.nErrorId:=nErrorID;
+	     _nStep:=0;
+		 stSlaveAxis.stPLCTONC.ePlanningMode:=E_PlanningMode.PLANNINGMODE_NONE;
+		 stSlaveAxis.stPLCTONC.eCommand:=E_Command.COMMAND_IDLE;
+         stSlaveAxis.stPLCTONC.bNcEnable:=FALSE;
+		  _bPathCalDone:=FALSE;
+		  stSlaveAxis.stAxisStatus.bSynchronizedMotion:=FALSE;
+	    _bMasterClib:=FALSE;
+		
+	110:
+	      bBusy:=FALSE;
+		  bInSync:=FALSE;
+		  bActive:=FALSE;
+		  bEndOfProfile:=FALSE;
+		  bCommandAborted:=TRUE;
+		  //stSlaveAxis.stAxisStatus.bSynchronizedMotion:=FALSE;
+		 // stSlaveAxis.stPLCTONC.eCommand:=E_Command.COMMAND_IDLE;
+		  //stSlaveAxis.stPLCTONC.ePlanningMode:=E_PlanningMode.PLANNINGMODE_NONE;
+		  _bPathCalDone:=FALSE;
+		  _bMasterClib:=FALSE;
+	      _nStep:=0;
+END_CASE
+A_CamOutStop();
+A_UpstateStatus();]]></ST>
+    </Implementation>
+    <Action Name="A_BufferUpdate" Id="{0199046e-ab59-4647-ab10-bf32270aed7d}">
+      <Implementation>
+        <ST><![CDATA[IF NOT _bPathCalDone THEN
+  _fStartPos_1:=stSlaveAxis.stNcTOPLC.fActPos;
+  _fMasterStartPos_1:=stMasterAxis.stNcTOPLC.fActPos;
+END_IF 
+stSlaveAxis.stPLCTONC.stCamParam.nElements:=stCamTableID.nElements;
+stSlaveAxis.stPLCTONC.stCamParam.nPointType:=stCamTableID.nPointType;
+
+IF NOT _bPathCalDone THEN
+	_fbUpdateTrig(CLK:= FALSE, Q=> );
+END_IF
+
+_fbUpdateTrig(CLK:= (stSlaveAxis.stNcTOPLC.nCuSegIndex>(_nCuPointIndex-2) OR NOT _bPathCalDone), Q=> );
+IF _fbUpdateTrig.Q THEN 
+	stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer:=_stCamNoParam.aCamBuffer;
+	IF (_eMotionMode=E_StartMode.MC_STARTMODE_RELATIVE)THEN   //主、从相对模式
+		IF (stCamTableID.nPointType=1)THEN
+			    IF LTRUNC(_astCamXYVA[0].fDx)<>0 THEN 
+					_bCamInError:=TRUE;
+				    nErrorID:=30442; 
+				    RETURN;
+				END_IF
+				IF LTRUNC(_astCamXYVA[0].fDy)<>0 THEN 
+					_bCamInError:=TRUE;
+				    nErrorID:=30443; 
+				    RETURN;
+				END_IF
+			FOR _nIndex:=0 TO cPointBuffer  DO
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDy:=_astCamXYVA[_nIndex+_nCuPointIndex].fDy+_fStartPos_1;
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDv:=_astCamXYVA[_nIndex+_nCuPointIndex].fDv;
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDa:=_astCamXYVA[_nIndex+_nCuPointIndex].fDa;
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDj:=_astCamXYVA[_nIndex+_nCuPointIndex].fDj;
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_astCamXYVA[_nIndex+_nCuPointIndex].fDx+_fMasterStartPos_1;
+			     stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].nMotionFunctionType:=_astCamXYVA[_nIndex+_nCuPointIndex].nMotionFunctionType;
+			END_FOR
+			 // 主轴位置补偿
+			 IF (_nCuPointIndex=0)THEN
+				FOR _nIndex:=1 TO cPointBuffer  DO	
+				    stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_astCamXYVA[_nIndex+_nCuPointIndex].fDx+_fMasterStartPos_1-_fClibPos;
+				END_FOR	
+			ELSE
+				FOR _nIndex:=0 TO cPointBuffer  DO
+				    stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_astCamXYVA[_nIndex+_nCuPointIndex].fDx+_fMasterStartPos_1-_fClibPos;
+						  
+				END_FOR
+			END_IF
+			
+		ELSIF(stCamTableID.nPointType=2)THEN 
+			   IF LTRUNC(_stCamXY.afPoint[0,0])<>0 THEN 
+					_bCamInError:=TRUE;
+				    nErrorID:=30442; 
+				    RETURN;
+				END_IF
+				IF LTRUNC(_stCamXY.afPoint[0,1])<>0 THEN 
+					_bCamInError:=TRUE;
+				    nErrorID:=30443; 
+				    RETURN;
+				END_IF
+			FOR _nIndex:=0 TO cPointBuffer  DO
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_stCamXY.afPoint[_nIndex+_nCuPointIndex,0]+_fMasterStartPos_1;
+			     stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDy:=_stCamXY.afPoint[_nIndex+_nCuPointIndex,1]+_fStartPos_1;
+			END_FOR
+			// 主轴位置补偿
+			 IF (_nCuPointIndex=0)THEN
+				FOR _nIndex:=1 TO cPointBuffer  DO	
+				    stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_stCamXY.afPoint[_nIndex+_nCuPointIndex,0]+_fMasterStartPos_1-_fClibPos;
+				END_FOR	
+			ELSE
+				FOR _nIndex:=0 TO cPointBuffer  DO
+				    stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_stCamXY.afPoint[_nIndex+_nCuPointIndex,0]+_fMasterStartPos_1-_fClibPos;
+						  
+				END_FOR
+			END_IF
+		ELSE
+			;
+		END_IF
+		
+	ELSIF (_eMotionMode=E_StartMode.MC_STARTMODE_MASTERABS_SLAVEREL)THEN  //主绝对、从相对
+		IF (stCamTableID.nPointType=1)THEN
+			IF LTRUNC(_astCamXYVA[0].fDy)<>0 THEN 
+				_bCamInError:=TRUE;
+				nErrorID:=30443; 
+				RETURN;
+			END_IF
+			IF (eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+					IF(_astCamXYVA[0].fDx-_fMasterStartPos_1)>=cMasterPosDealt THEN 
+						RETURN;
+                    ELSE
+                        IF (ABS(_fMasterStartPos_1-_astCamXYVA[0].fDx)>cMasterPosDealt) THEN
+				           _bCamInError:=TRUE;
+					        nErrorID:=30440; 
+				            RETURN;
+						END_IF
+					END_IF
+					
+			 ELSE
+					IF(_fMasterStartPos_1-_astCamXYVA[0].fDx)>=cMasterPosDealt THEN 
+						RETURN;
+                    ELSE
+                        IF (ABS(_fMasterStartPos_1-_astCamXYVA[0].fDx)>cMasterPosDealt) THEN
+				           _bCamInError:=TRUE;
+					        nErrorID:=30440; 
+				            RETURN;
+						END_IF
+					END_IF
+			END_IF
+			
+			FOR _nIndex:=0 TO cPointBuffer  DO
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDy:=_astCamXYVA[_nIndex+_nCuPointIndex].fDy+_fStartPos_1;
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDv:=_astCamXYVA[_nIndex+_nCuPointIndex].fDv;
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDa:=_astCamXYVA[_nIndex+_nCuPointIndex].fDa;
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDj:=_astCamXYVA[_nIndex+_nCuPointIndex].fDj;
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_astCamXYVA[_nIndex+_nCuPointIndex].fDx;
+			     stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].nMotionFunctionType:=_astCamXYVA[_nIndex+_nCuPointIndex].nMotionFunctionType;
+			END_FOR
+		ELSIF(stCamTableID.nPointType=2)THEN 
+			IF LTRUNC(_stCamXY.afPoint[0,1])<>0 THEN 
+					_bCamInError:=TRUE;
+				    nErrorID:=30443; 
+				    RETURN;
+		    END_IF
+			IF (eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+					IF(_stCamXY.afPoint[0,0]-_fMasterStartPos_1)>=cMasterPosDealt THEN 
+						RETURN;
+                    ELSE
+                        IF (ABS(_fMasterStartPos_1-_stCamXY.afPoint[0,0])>cMasterPosDealt) THEN
+				           _bCamInError:=TRUE;
+					        nErrorID:=30440; 
+				            RETURN;
+						END_IF
+					END_IF
+			 ELSE
+					IF(_fMasterStartPos_1-_stCamXY.afPoint[0,0])>=cMasterPosDealt THEN 
+						RETURN;
+                    ELSE
+                        IF (ABS(_fMasterStartPos_1-_stCamXY.afPoint[0,0])>cMasterPosDealt) THEN
+				           _bCamInError:=TRUE;
+					        nErrorID:=30440; 
+				            RETURN;
+						END_IF
+					END_IF
+		     END_IF
+			FOR _nIndex:=0 TO cPointBuffer  DO
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_stCamXY.afPoint[_nIndex+_nCuPointIndex,0];
+			     stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDy:=_stCamXY.afPoint[_nIndex+_nCuPointIndex,1]+_fStartPos_1;
+			END_FOR
+		ELSE
+			;
+		END_IF
+	ELSIF (_eMotionMode=E_StartMode.MC_STARTMODE_ABSOLUTE)THEN  //主绝对、从绝对
+		IF (stCamTableID.nPointType=1)THEN
+			IF (ABS(_fStartPos_1-_astCamXYVA[0].fDy)>cSlavePosDealt) THEN
+				        _bCamInError:=TRUE;
+				         nErrorID:=30441; 
+				       RETURN;
+			END_IF
+			IF (eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+					IF(_astCamXYVA[0].fDx-_fMasterStartPos_1)>cMasterPosDealt THEN 
+						RETURN;
+                    ELSE
+                        IF (ABS(_fMasterStartPos_1-_astCamXYVA[0].fDx)>=cMasterPosDealt) THEN
+				           _bCamInError:=TRUE;
+					        nErrorID:=30440; 
+				            RETURN;
+						END_IF
+					END_IF
+			ELSE
+					IF(_fMasterStartPos_1-_astCamXYVA[0].fDx)>=cMasterPosDealt THEN 
+						RETURN;
+                    ELSE
+                        IF (ABS(_fMasterStartPos_1-_astCamXYVA[0].fDx)>cMasterPosDealt) THEN
+				           _bCamInError:=TRUE;
+					        nErrorID:=30440; 
+				            RETURN;
+						END_IF
+					END_IF
+					
+		    END_IF
+			FOR _nIndex:=0 TO cPointBuffer  DO
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDy:=_astCamXYVA[_nIndex+_nCuPointIndex].fDy;
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDv:=_astCamXYVA[_nIndex+_nCuPointIndex].fDv;
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDa:=_astCamXYVA[_nIndex+_nCuPointIndex].fDa;
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDj:=_astCamXYVA[_nIndex+_nCuPointIndex].fDj;
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_astCamXYVA[_nIndex+_nCuPointIndex].fDx;
+			     stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].nMotionFunctionType:=_astCamXYVA[_nIndex+_nCuPointIndex].nMotionFunctionType;
+			END_FOR
+			// 动态进入
+			IF (eStartMode=E_StartMode.MC_RAMPIN) AND(_nCuPointIndex=0)THEN
+                  IF (eDirection=E_Direction.DIRECTION_POSITIVE) THEN
+						IF (stMasterAxis.stNcTOPLC.fActVelo<>0)AND (stSlaveAxis.stNcTOPLC.fActPos<_astCamXYVA[0].fDy)THEN
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDv:=stSlaveAxis.stNcTOPLC.fActVelo/stMasterAxis.stNcTOPLC.fActVelo;
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDy:=stSlaveAxis.stNcTOPLC.fActPos;
+						
+						END_IF
+				   ELSE
+					   IF (stMasterAxis.stNcTOPLC.fActVelo<>0)AND (stSlaveAxis.stNcTOPLC.fActPos>_astCamXYVA[0].fDy)THEN
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDv:=stSlaveAxis.stNcTOPLC.fActVelo/stMasterAxis.stNcTOPLC.fActVelo;
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDy:=stSlaveAxis.stNcTOPLC.fActPos;
+						
+						END_IF
+				   END_IF
+			END_IF
+		ELSIF(stCamTableID.nPointType=2)THEN 
+			IF (ABS(_fStartPos_1-_stCamXY.afPoint[0,1])>cSlavePosDealt) THEN
+				       _bCamInError:=TRUE;
+				        nErrorID:=30441; 
+				        RETURN;
+		    END_IF
+			IF (eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+					IF(_stCamXY.afPoint[0,0]-_fMasterStartPos_1)>=cMasterPosDealt THEN 
+						RETURN;
+                    ELSE
+                        IF (ABS(_fMasterStartPos_1-_stCamXY.afPoint[0,0])>cMasterPosDealt) THEN
+				           _bCamInError:=TRUE;
+					        nErrorID:=30440; 
+				            RETURN;
+						END_IF
+					END_IF
+					
+			    ELSE
+					IF(_fMasterStartPos_1-_stCamXY.afPoint[0,0])>=cMasterPosDealt THEN 
+						RETURN;
+                    ELSE
+                        IF (ABS(_fMasterStartPos_1-_stCamXY.afPoint[0,0])>cMasterPosDealt) THEN
+				           _bCamInError:=TRUE;
+					        nErrorID:=30440; 
+				            RETURN;
+						END_IF
+					END_IF
+					
+				END_IF
+			FOR _nIndex:=0 TO cPointBuffer  DO
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_stCamXY.afPoint[_nIndex+_nCuPointIndex,0];
+			     stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDy:=_stCamXY.afPoint[_nIndex+_nCuPointIndex,1];
+			END_FOR
+			// 动态进入
+			IF (eStartMode=E_StartMode.MC_RAMPIN) AND (_nCuPointIndex=0)THEN
+                  IF (eDirection=E_Direction.DIRECTION_POSITIVE) THEN
+						IF (stMasterAxis.stNcTOPLC.fActVelo<>0)AND (stSlaveAxis.stNcTOPLC.fActPos<_stCamXY.afPoint[0,1]) THEN
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDv:=stSlaveAxis.stNcTOPLC.fActVelo/ABS(stMasterAxis.stNcTOPLC.fActVelo);
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDy:=stSlaveAxis.stNcTOPLC.fActPos;
+						
+						END_IF
+				   ELSE
+					   IF (stMasterAxis.stNcTOPLC.fActVelo<>0)AND (stSlaveAxis.stNcTOPLC.fActPos>_stCamXY.afPoint[0,1])THEN
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDv:=stSlaveAxis.stNcTOPLC.fActVelo/ABS(stMasterAxis.stNcTOPLC.fActVelo);
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDy:=stSlaveAxis.stNcTOPLC.fActPos;
+						
+						END_IF
+				   END_IF
+			END_IF
+		ELSE
+			;
+		END_IF
+	ELSE                        //主相对、从绝对
+		IF (stCamTableID.nPointType=1)THEN
+			IF (ABS(_fStartPos_1-_astCamXYVA[0].fDy)>cSlavePosDealt) THEN
+				   _bCamInError:=TRUE;
+				        nErrorID:=30441; 
+				        RETURN;
+			END_IF
+			IF LTRUNC(_astCamXYVA[0].fDx)<>0 THEN 
+					_bCamInError:=TRUE;
+				    nErrorID:=30442; 
+				    RETURN;
+			END_IF
+			FOR _nIndex:=0 TO cPointBuffer  DO
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDy:=_astCamXYVA[_nIndex+_nCuPointIndex].fDy;
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDv:=_astCamXYVA[_nIndex+_nCuPointIndex].fDv;
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDa:=_astCamXYVA[_nIndex+_nCuPointIndex].fDa;
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDj:=_astCamXYVA[_nIndex+_nCuPointIndex].fDj;
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_astCamXYVA[_nIndex+_nCuPointIndex].fDx+_fMasterStartPos_1;
+			     stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].nMotionFunctionType:=_astCamXYVA[_nIndex+_nCuPointIndex].nMotionFunctionType;
+			END_FOR
+			// 主轴位置补偿
+			 IF (_nCuPointIndex=0)THEN
+				FOR _nIndex:=1 TO cPointBuffer  DO	
+				    stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_astCamXYVA[_nIndex+_nCuPointIndex].fDx+_fMasterStartPos_1-_fClibPos;
+				END_FOR	
+			ELSE
+				FOR _nIndex:=0 TO cPointBuffer  DO
+				    stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_astCamXYVA[_nIndex+_nCuPointIndex].fDx+_fMasterStartPos_1-_fClibPos;
+						  
+				END_FOR
+			END_IF
+			// 动态进入
+			IF (eStartMode=E_StartMode.MC_RAMPIN) AND(_nCuPointIndex=0)THEN
+                  IF (eDirection=E_Direction.DIRECTION_POSITIVE) THEN
+						IF (stMasterAxis.stNcTOPLC.fActVelo<>0)AND (stSlaveAxis.stNcTOPLC.fActPos<_astCamXYVA[0].fDy)THEN
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDv:=stSlaveAxis.stNcTOPLC.fActVelo/stMasterAxis.stNcTOPLC.fActVelo;
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDy:=stSlaveAxis.stNcTOPLC.fActPos;
+						
+						END_IF
+				   ELSE
+					   IF (stMasterAxis.stNcTOPLC.fActVelo<>0)AND (stSlaveAxis.stNcTOPLC.fActPos>_astCamXYVA[0].fDy)THEN
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDv:=stSlaveAxis.stNcTOPLC.fActVelo/stMasterAxis.stNcTOPLC.fActVelo;
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDy:=stSlaveAxis.stNcTOPLC.fActPos;
+						
+						END_IF
+				   END_IF
+			END_IF
+		ELSIF(stCamTableID.nPointType=2)THEN 
+			IF (ABS(_fStartPos_1-_stCamXY.afPoint[0,1])>cSlavePosDealt) THEN
+				    _bCamInError:=TRUE;
+				        nErrorID:=30441; 
+				        RETURN;
+			END_IF
+			IF LTRUNC(_stCamXY.afPoint[0,0])<>0 THEN 
+					_bCamInError:=TRUE;
+				    nErrorID:=30442; 
+				    RETURN;
+			END_IF
+			FOR _nIndex:=0 TO cPointBuffer  DO
+				 stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_stCamXY.afPoint[_nIndex+_nCuPointIndex,0]+_fMasterStartPos_1;
+			     stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDy:=_stCamXY.afPoint[_nIndex+_nCuPointIndex,1];
+			END_FOR
+			 // 主轴位置补偿
+			IF (_nCuPointIndex=0)THEN
+				FOR _nIndex:=1 TO cPointBuffer  DO	
+				    stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_stCamXY.afPoint[_nIndex+_nCuPointIndex,0]+_fMasterStartPos_1-_fClibPos;
+				END_FOR	
+			ELSE
+				FOR _nIndex:=0 TO cPointBuffer  DO
+				    stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_stCamXY.afPoint[_nIndex+_nCuPointIndex,0]+_fMasterStartPos_1-_fClibPos;
+						  
+				END_FOR
+			END_IF	
+			// 动态进入
+			IF (eStartMode=E_StartMode.MC_RAMPIN) AND (_nCuPointIndex=0)THEN
+                  IF (eDirection=E_Direction.DIRECTION_POSITIVE) THEN
+						IF (stMasterAxis.stNcTOPLC.fActVelo<>0)AND (stSlaveAxis.stNcTOPLC.fActPos<_stCamXY.afPoint[0,1]) THEN
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDv:=stSlaveAxis.stNcTOPLC.fActVelo/ABS(stMasterAxis.stNcTOPLC.fActVelo);
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDy:=stSlaveAxis.stNcTOPLC.fActPos;
+						
+						END_IF
+				   ELSE
+					   IF (stMasterAxis.stNcTOPLC.fActVelo<>0)AND (stSlaveAxis.stNcTOPLC.fActPos>_stCamXY.afPoint[0,1])THEN
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDv:=stSlaveAxis.stNcTOPLC.fActVelo/ABS(stMasterAxis.stNcTOPLC.fActVelo);
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDy:=stSlaveAxis.stNcTOPLC.fActPos;
+						
+						END_IF
+				   END_IF
+			END_IF
+		ELSE
+			;
+		END_IF
+	END_IF 
+    _nCuPointIndex:=_nCuPointIndex+cPointBuffer-1;
+    stSlaveAxis.stPLCTONC.stCamParam.nBuffNum:=stSlaveAxis.stPLCTONC.stCamParam.nBuffNum+1;
+    stSlaveAxis.stPLCTONC.stCamParam.bCamLoad:=TRUE;
+    _bPathCalDone:=TRUE;
+END_IF
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_CamOutStop" Id="{ac529459-aadd-4052-afa5-86be1ea7e41f}">
+      <Implementation>
+        <ST><![CDATA[_fSetVelo:=LTRUNC(stSlaveAxis.stNcTOPLC.fActVelo);
+IF (_fSetVelo<=0)THEN 
+	_fSetVelo:=stSlaveAxis.stAxisParam.stDynamicDefault.fDefaultVelocity;
+END_IF
+_fbMCMoveAbsolute(
+	stAxis:= stSlaveAxis, 
+	bExecute:=_bAbsExecute, 
+	bContinuousUpdate:= , 
+	bCollsionNotValid:=bCollsionNotValid , 
+	fPosition:=_fSetPos , 
+	fVelocity:=_fSetVelo, 
+	fAcceleration:=_fAcc , 
+	fDeceleration:=_fAcc , 
+	fJerk:= , 
+	fGap:=fGap , 
+	//eDirection:=eDirection , 
+	bDone=> , 
+	bBusy=> , 
+	bActive=> , 
+	bCommandAborted=> , 
+	bError=> , 
+	nErrorId=> );
+	
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_CommandCheck" Id="{407454a8-ae30-45f5-a2f0-f4923b0971f0}">
+      <Implementation>
+        <ST><![CDATA[(*_fbTrig(CLK:=bExecute , Q=> );
+IF _fbTrig.Q AND (_nStep=0)  THEN
+	_nStep:=10;
+	IF (NOT stSlaveAxis.stAxisStatus.bEnabled) OR stSlaveAxis.stAxisStatus.bError THEN 
+		_nStep:=100;
+		bError:=TRUE;
+		nErrorID:=30424;
+		RETURN;
+	END_IF
+	IF stMasterAxis.stAxisStatus.bError THEN
+		_nStep:=0;
+		bError:=TRUE;
+		nErrorID:=30425;
+		RETURN;
+	END_IF
+
+END_IF
+
+_fbCamOutFtrig(CLK:=stSlaveAxis.stAxisStatus.bSynchronizedMotion , Q=> );
+IF _fbCamOutFtrig.Q  AND (_nStep<>0) AND (stSlaveAxis.stPLCTONC.eCommand=E_Command.COMMAND_CAMIN)THEN          
+	bCommandAborted:=TRUE;
+	_nStep:=40;	
+	
+END_IF
+
+IF stSlaveAxis.stAxisStatus.bStopping AND (_nStep<>0)THEN
+		bCommandAborted:=TRUE;
+		bBusy:=FALSE;
+		bEndOfProfile:=FALSE;
+		bInSync:=FALSE;
+		bActive:=FALSE;
+	    _nStep:=0;
+        _bPathCalDone:=FALSE;
+		stSlaveAxis.stAxisStatus.bSynchronizedMotion:=FALSE;
+		stSlaveAxis.stAxisStatus.bMoving:=FALSE;
+		A_CamOutStop();
+END_IF	
+
+_fbEnbleTrig(CLK:=NOT stSlaveAxis.stAxisStatus.bEnabled , Q=> );
+IF _fbEnbleTrig.Q  AND (_nStep<>0) THEN 
+	
+	bCommandAborted:=TRUE;
+	IF (_nStep=0)THEN
+		bBusy:=FALSE;
+		bEndOfProfile:=FALSE;
+		bInSync:=FALSE;
+		bActive:=FALSE;
+	    _nStep:=0;
+       _bPathCalDone:=FALSE;
+		stSlaveAxis.stAxisStatus.bSynchronizedMotion:=FALSE;
+	ELSE
+      _nStep:=80;
+    END_IF 	
+END_IF*)
+
+_fbTrig(CLK:=bExecute , Q=> );
+IF _fbTrig.Q AND (_nStep=0)  THEN
+	_nStep:=10;
+	IF (NOT stSlaveAxis.stAxisStatus.bEnabled) OR stSlaveAxis.stAxisStatus.bError OR stSlaveAxis.stAxisStatus.bStopping THEN 
+		_nStep:=100;
+		//bError:=TRUE;
+		nErrorID:=30424;
+		RETURN;
+	END_IF
+	IF stMasterAxis.stAxisStatus.bError THEN
+		_nStep:=0;
+		//bError:=TRUE;
+		nErrorID:=30425;
+		RETURN;
+	END_IF
+
+END_IF
+
+//camout
+
+IF (stSlaveAxis.stPLCTONC.eCommand=E_Command.COMMAND_CAMOUT) AND (_nStep<>0)AND(_eCommand=E_Command.COMMAND_CAMIN)THEN 
+	_nStep:=40;
+END_IF 
+
+
+//command aborted    stop and halt
+
+IF ((stSlaveAxis.stPLCTONC.eCommand=E_Command.COMMAND_STOP)OR((stSlaveAxis.stPLCTONC.eCommand=E_Command.COMMAND_HALT))) 
+      AND (_nStep<>0)AND(_eCommand=E_Command.COMMAND_CAMIN)THEN 
+	_nStep:=110;
+END_IF
+
+
+ 
+
+_fbEnbleTrig(CLK:=stSlaveAxis.stAxisStatus.bEnabled , Q=> );
+IF _fbEnbleTrig.Q   THEN 
+	//bCommandAborted:=TRUE;
+	IF (_nStep=0)THEN
+		bBusy:=FALSE;
+		bEndOfProfile:=FALSE;
+		bInSync:=FALSE;
+		bActive:=FALSE;
+       _bPathCalDone:=FALSE;
+		//stSlaveAxis.stAxisStatus.bSynchronizedMotion:=FALSE;
+	ELSE
+      _nStep:=80;
+    END_IF 	
+END_IF]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_ParamCheck" Id="{71fe7505-848a-4d27-8285-84d241a1b210}">
+      <Implementation>
+        <ST><![CDATA[//参数校验
+IF (ADR(stMasterAxis)=0)THEN 
+	_bParamError:=TRUE;  
+	nErrorID:=30429;
+    RETURN;	
+END_IF
+
+IF ADR(stMasterAxis)=ADR(stSlaveAxis)THEN
+	_bParamError:=TRUE; 
+    nErrorID:=30430; 
+    RETURN;	    
+END_IF
+(*IF (stCamTable.nCamTableID=0) THEN 
+	_bParamError:=TRUE;
+END_IF*)
+
+IF (stCamTableID.nElements<2)THEN
+	_bParamError:=TRUE;  
+	nErrorID:=30431; 
+	RETURN;
+END_IF
+
+// 设置目标位置校验
+
+
+//参数赋值
+stSlaveAxis.stAxisStatus.pMaster:=ADR(stMasterAxis);
+_fClampLength:=stSlaveAxis.stAxisParam.fClampLength*0.5;
+
+IF (fGap<>0)THEN 
+   _fGap :=_fClampLength+ABS(fGap);
+     
+ELSE
+  _fGap :=_fClampLength+ABS(stSlaveAxis.stAxisParam.fGap);
+ 
+END_IF
+
+IF (fAcceleration=0) THEN 
+	_fAcc:=stSlaveAxis.stAxisParam.stDynamicDefault.fDefaultAccelaration;
+ELSE
+	_fAcc:=ABS(fAcceleration);
+	IF (fAcceleration>stSlaveAxis.stAxisParam.stDynamicDefault.fMaxAccelaration)THEN
+		_fAcc:=stSlaveAxis.stAxisParam.stDynamicDefault.fMaxAccelaration;
+	END_IF
+END_IF
+
+
+IF (fDeceleration=0) THEN
+   _fDec:=stSlaveAxis.stAxisParam.stDynamicDefault.fDefaultDeceleration;
+ELSE 
+	_fDec:=ABS(fDeceleration);
+	IF (fDeceleration>stSlaveAxis.stAxisParam.stDynamicDefault.fMaxDeceleration)THEN
+		_fDec:=stSlaveAxis.stAxisParam.stDynamicDefault.fMaxDeceleration;
+	END_IF
+END_IF
+
+IF (_fAcc<>_fDec)THEN
+	_fDec:=_fAcc;
+END_IF
+
+_nSysType:=stSlaveAxis.stAxisParam.stRoadParam.nSysType;
+
+stSlaveAxis.stPLCTONC.nSysType:=_nSysType;
+IF (_nSysType=1)OR (_nSysType=4) THEN 
+	stSlaveAxis.stPLCTONC.nSysType:=2;
+END_IF
+
+
+_fSetPos:=fPosition;
+
+(****************** path time calculate*******************)
+IF (eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+	stSlaveAxis.stAxisStatus.bPositiveDirection:=TRUE;
+	stSlaveAxis.stAxisStatus.bNegativeDirection:=FALSE;
+ELSE
+    stSlaveAxis.stAxisStatus.bPositiveDirection:=FALSE;
+	stSlaveAxis.stAxisStatus.bNegativeDirection:=TRUE;
+END_IF
+
+
+// 运动模式
+IF NOT stCamTableID.bMasterAbsolute  THEN
+   IF NOT stCamTableID.bSlaveAbsolute THEN 
+	   _eMotionMode:=E_StartMode.MC_STARTMODE_RELATIVE;
+
+    ELSE
+	   _eMotionMode:=E_StartMode.MC_STARTMODE_MASTERREL_SLAVEABS; 
+	END_IF  
+ELSE
+    IF NOT stCamTableID.bSlaveAbsolute THEN 
+		_eMotionMode:=E_StartMode.MC_STARTMODE_MASTERABS_SLAVEREL;	
+	
+    ELSE
+		_eMotionMode:=E_StartMode.MC_STARTMODE_ABSOLUTE;	
+	END_IF  
+END_IF
+
+
+// 数据copy  1 xyava  2 xy
+IF (stCamTableID.nPointType=1)  THEN 
+	memcpy(ADR(_astCamXYVA) ,stCamTableID.pPointArry,SIZEOF(_astCamXYVA));
+	
+	_fMaxPos:=0;
+	_fMinPos:=0;
+	
+	FOR _nSubIndex:=0 TO 255  DO
+			IF (_astCamXYVA[_nSubIndex].fDy>_fMaxPos)THEN 
+				_fMaxPos:=_astCamXYVA[_nSubIndex].fDy;
+			END_IF
+		    IF (_astCamXYVA[_nSubIndex].fDy<_fMinPos)THEN 
+				_fMinPos:=_astCamXYVA[_nSubIndex].fDy;
+			END_IF
+	END_FOR
+ELSE
+	memcpy(ADR(_stCamXY) ,stCamTableID.pPointArry,SIZEOF(_stCamXY));
+	_fMaxPos:=0;
+	_fMinPos:=0;
+	FOR _nSubIndex:=0 TO 255  DO
+			IF (_stCamXY.afPoint[_nSubIndex,1]>_fMaxPos)THEN 
+				_fMaxPos:=_stCamXY.afPoint[_nSubIndex,1];
+			END_IF
+			IF (_stCamXY.afPoint[_nSubIndex,1]<_fMinPos)THEN 
+				_fMinPos:=_stCamXY.afPoint[_nSubIndex,1];
+			END_IF
+	END_FOR
+END_IF
+
+IF (eDirection=E_Direction.DIRECTION_POSITIVE) THEN
+	IF (_fMinPos<0)AND((_eMotionMode=E_StartMode.MC_STARTMODE_RELATIVE)OR (_eMotionMode=E_StartMode.MC_STARTMODE_MASTERABS_SLAVEREL))THEN      
+		 _bParamError:=TRUE; 
+         nErrorID:=30432;  
+	     RETURN;
+	END_IF
+	IF (_pPremover^.stNcTOPLC.nAxisId<>0)AND NOT bCollsionNotValid THEN
+		_fPrePosition:=_pPremover^.stNcTOPLC.fActPos -_fGap-_pPremover^.stAxisParam.fClampLength*0.5;
+		IF (_eMotionMode=E_StartMode.MC_STARTMODE_RELATIVE)OR (_eMotionMode=E_StartMode.MC_STARTMODE_MASTERABS_SLAVEREL) THEN 
+			IF ((stSlaveAxis.stNcTOPLC.fActPos+_fMaxPos)>_fPrePosition) THEN
+			   _bParamError:=TRUE; 
+			   nErrorID:=30433;  
+				RETURN;
+			END_IF
+			IF ((stSlaveAxis.stNcTOPLC.fActPos+_fMaxPos)>_fSetPos) THEN
+				_bParamError:=TRUE; 
+				nErrorID:=30434;  
+				RETURN;
+			END_IF
+		ELSE
+			IF _fMaxPos >_fPrePosition THEN
+			   _bParamError:=TRUE; 
+			   nErrorID:=30433;  
+				RETURN;
+			END_IF
+			IF _fMaxPos >_fSetPos THEN
+				_bParamError:=TRUE; 
+				nErrorID:=30434;  
+				RETURN;
+			END_IF
+		END_IF
+	END_IF
+	 
+ELSE
+	IF (_fMaxPos>0)AND((_eMotionMode=E_StartMode.MC_STARTMODE_RELATIVE)OR (_eMotionMode=E_StartMode.MC_STARTMODE_MASTERABS_SLAVEREL))THEN      
+		 _bParamError:=TRUE; 
+         nErrorID:=30432;  
+	     RETURN;
+	END_IF
+	IF (_pPremover^.stNcTOPLC.nAxisId<>0)AND NOT bCollsionNotValid THEN
+        _fPrePosition:=_pPremover^.stNcTOPLC.fActPos+fGap+_pPremover^.stAxisParam.fClampLength*0.5;
+		
+		IF (_eMotionMode=E_StartMode.MC_STARTMODE_RELATIVE)OR (_eMotionMode=E_StartMode.MC_STARTMODE_MASTERABS_SLAVEREL) THEN 
+			IF ((stSlaveAxis.stNcTOPLC.fActPos+_fMinPos)<_fPrePosition) THEN
+			   _bParamError:=TRUE; 
+			   nErrorID:=30433;  
+				RETURN;
+			END_IF
+			IF ((stSlaveAxis.stNcTOPLC.fActPos+_fMinPos)<_fSetPos) THEN
+			   _bParamError:=TRUE; 
+			   nErrorID:=30434;  
+				RETURN;
+			END_IF
+		ELSE
+			IF _fMinPos <_fPrePosition THEN
+			   _bParamError:=TRUE; 
+			   nErrorID:=30433;  
+				RETURN;
+			END_IF
+			IF _fMinPos <_fSetPos THEN
+			   _bParamError:=TRUE; 
+			   nErrorID:=30434;  
+				RETURN;
+			END_IF
+		END_IF
+	END_IF
+END_IF
+
+//最大速度、加速度,加加速度校验  归一化 速度 1.875  加速度 5.773  加加速度60.00   设置主轴最大速度
+
+_fMaxVel:= ABS(stCamTableID.fMasterMaxVelo)*1.875;
+
+IF (_fMaxVel>stSlaveAxis.stAxisParam.stDynamicDefault.fMaxVelocity)THEN
+	_bParamError:=TRUE; 
+     nErrorID:=30435;  
+	 RETURN;
+END_IF
+
+IF (stCamTableID.nPointType=1)  THEN 
+	_fMaxAcc:=0;
+	_fMaxJec:=0;
+	FOR _nSubIndex:=0 TO (stCamTableID.nElements-2)  DO
+		 IF (eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+		      _Dealt_X:=_astCamXYVA[_nSubIndex+1].fDx-_astCamXYVA[_nSubIndex].fDx;
+	     ELSE
+			 _Dealt_X:=_astCamXYVA[_nSubIndex].fDx-_astCamXYVA[_nSubIndex+1].fDx;
+			 
+		 END_IF
+		 
+	     _fMaxAcc_1:=5.733*stCamTableID.fMasterMaxVelo*stCamTableID.fMasterMaxVelo/_Dealt_X;
+		 _fMaxJec_1:=60*stCamTableID.fMasterMaxVelo*stCamTableID.fMasterMaxVelo*stCamTableID.fMasterMaxVelo/(_Dealt_X*_Dealt_X);
+		 IF _fMaxAcc_1>_fMaxAcc THEN
+			 _fMaxAcc:=_fMaxAcc_1;
+		 END_IF
+		 IF _fMaxJec_1>_fMaxJec THEN
+			 _fMaxJec:=_fMaxJec_1;
+		 END_IF
+		 IF (_Dealt_X<0)THEN
+				 _bParamError:=TRUE; 
+                 nErrorID:=30444; 
+				 EXIT;
+	     END_IF
+	END_FOR
+ELSE
+	_fMaxAcc:=0;
+	_fMaxJec:=0;
+	FOR _nSubIndex:=0 TO (stCamTableID.nElements-2)  DO
+			IF (_stCamXY.afPoint[_nSubIndex,1]>_fMaxPos)THEN 
+				_fMaxPos:=_stCamXY.afPoint[_nSubIndex,1];
+			END_IF
+			IF (_stCamXY.afPoint[_nSubIndex,1]<_fMinPos)THEN 
+				_fMinPos:=_stCamXY.afPoint[_nSubIndex,1];
+			END_IF
+			IF (eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+		         _Dealt_X:=_stCamXY.afPoint[_nSubIndex+1,0]-_stCamXY.afPoint[_nSubIndex,0];
+			ELSE
+				_Dealt_X:=_stCamXY.afPoint[_nSubIndex,0]-_stCamXY.afPoint[_nSubIndex+1,0];
+			END_IF
+	     _fMaxAcc_1:=5.733*stCamTableID.fMasterMaxVelo*stCamTableID.fMasterMaxVelo/_Dealt_X;
+		 _fMaxJec_1:=60*stCamTableID.fMasterMaxVelo*stCamTableID.fMasterMaxVelo*stCamTableID.fMasterMaxVelo/(_Dealt_X*_Dealt_X);
+		 IF _fMaxAcc_1>_fMaxAcc THEN
+			 _fMaxAcc:=_fMaxAcc_1;
+		 END_IF
+		 IF _fMaxJec_1>_fMaxJec THEN
+			 _fMaxJec:=_fMaxJec_1;
+		 END_IF
+		 IF (_Dealt_X<0)THEN
+				 _bParamError:=TRUE; 
+                 nErrorID:=30444; 
+				 EXIT;
+	     END_IF
+	END_FOR
+END_IF
+
+IF (_fMaxAcc>stSlaveAxis.stAxisParam.stDynamicDefault.fMaxAccelaration)THEN
+	_bParamError:=TRUE; 
+     nErrorID:=30436;  
+	 RETURN;
+END_IF
+
+IF (_fMaxJec>stSlaveAxis.stAxisParam.stDynamicDefault.fMaxJerk)THEN
+	_bParamError:=TRUE; 
+     nErrorID:=30437;  
+	 RETURN;
+END_IF
+
+_fFirsCyclePos:=stMasterAxis.stNcTOPLC.fActPos;
+
+
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_PathGenaration" Id="{8036fab7-a0c0-4545-b951-c00940ef0fcc}">
+      <Implementation>
+        <ST><![CDATA[// collision check  注意方向
+_fStartPos:=LTRUNC(stSlaveAxis.stNcTOPLC.fActPos);
+_fMasterStartPos:=LTRUNC(stMasterAxis.stNcTOPLC.fActPos);
+_nPointNum:=stCamTableID.nElements;
+stSlaveAxis.stPLCTONC.stCamParam.bPeriodic:=stCamTableID.bPeriodic;
+//_fClibPos:=_fMasterStartPos-_fFirsCyclePos;
+
+IF NOT _bMasterClib THEN      //25.01.02
+	_fClibPos:=_fMasterStartPos-_fFirsCyclePos;
+	_bMasterClib:=TRUE;
+END_IF
+
+IF (_nPointNum<=cPointBuffer) THEN
+   IF  NOT _bPathCalDone THEN
+	    stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer:=_stCamNoParam.aCamBuffer;
+		stSlaveAxis.stPLCTONC.stCamParam.nElements:=stCamTableID.nElements;
+		stSlaveAxis.stPLCTONC.stCamParam.nPointType:=stCamTableID.nPointType;
+		IF (_eMotionMode=E_StartMode.MC_STARTMODE_RELATIVE)THEN        //主、从相对模式
+			IF (stCamTableID.nPointType=1)THEN
+				IF LTRUNC(_astCamXYVA[0].fDx)<>0 THEN 
+					_bCamInError:=TRUE;
+				    nErrorID:=30442; 
+				    RETURN;
+				END_IF
+				IF LTRUNC(_astCamXYVA[0].fDy)<>0 THEN 
+					_bCamInError:=TRUE;
+				    nErrorID:=30443; 
+				    RETURN;
+				END_IF
+				FOR _nIndex:=0 TO _nPointNum  DO
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDv:=_astCamXYVA[_nIndex].fDv;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDy:=_astCamXYVA[_nIndex].fDy+_fStartPos;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDa:=_astCamXYVA[_nIndex].fDa;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDj:=_astCamXYVA[_nIndex].fDj;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_astCamXYVA[_nIndex].fDx+_fMasterStartPos;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].nMotionFunctionType:=_astCamXYVA[_nIndex].nMotionFunctionType;
+				END_FOR
+				 // 主轴位置补偿
+				FOR _nIndex:=1 TO _nPointNum  DO
+					
+					   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_astCamXYVA[_nIndex].fDx+_fMasterStartPos-_fClibPos;
+				END_FOR	
+		    ELSIF(stCamTableID.nPointType=2)THEN
+				IF LTRUNC(_stCamXY.afPoint[0,0])<>0 THEN 
+					_bCamInError:=TRUE;
+				    nErrorID:=30442; 
+				    RETURN;
+				END_IF
+				IF LTRUNC(_stCamXY.afPoint[0,1])<>0 THEN 
+					_bCamInError:=TRUE;
+				    nErrorID:=30443; 
+				    RETURN;
+				END_IF
+				
+				FOR _nIndex:=0 TO _nPointNum  DO
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_stCamXY.afPoint[_nIndex,0]+_fMasterStartPos;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDy:=_stCamXY.afPoint[_nIndex,1]+_fStartPos;
+					
+				END_FOR
+				  // 主轴位置补偿
+				FOR _nIndex:=1 TO _nPointNum  DO
+					   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_stCamXY.afPoint[_nIndex,0]+_fMasterStartPos-_fClibPos;	  
+				END_FOR	
+			ELSE
+				;
+			END_IF
+		ELSIF (_eMotionMode=E_StartMode.MC_STARTMODE_MASTERABS_SLAVEREL)THEN  //主绝对、从相对
+			IF LTRUNC(_astCamXYVA[0].fDy)<>0 THEN 
+					    _bCamInError:=TRUE;
+				        nErrorID:=30443; 
+				        RETURN;
+		    END_IF
+			IF (stCamTableID.nPointType=1)THEN
+				IF (eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+					IF (_astCamXYVA[0].fDx-_fMasterStartPos)>=cMasterPosDealt THEN 
+						RETURN;
+                    ELSE
+                        IF (ABS(_fMasterStartPos-_astCamXYVA[0].fDx)>cMasterPosDealt) THEN
+				           _bCamInError:=TRUE;
+					        nErrorID:=30440; 
+				            RETURN;
+						END_IF
+					END_IF
+					
+			    ELSE
+					IF(_fMasterStartPos-_astCamXYVA[0].fDx)>=cMasterPosDealt THEN 
+						RETURN;
+                    ELSE
+                        IF (ABS(_fMasterStartPos-_astCamXYVA[0].fDx)>cMasterPosDealt) THEN
+				           _bCamInError:=TRUE;
+					        nErrorID:=30440; 
+				            RETURN;
+						END_IF
+					END_IF
+					
+				END_IF
+				
+				FOR _nIndex:=0 TO _nPointNum  DO
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDv:=_astCamXYVA[_nIndex].fDv;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDy:=_astCamXYVA[_nIndex].fDy+_fStartPos;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDa:=_astCamXYVA[_nIndex].fDa;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDj:=_astCamXYVA[_nIndex].fDj;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_astCamXYVA[_nIndex].fDx;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].nMotionFunctionType:=_astCamXYVA[_nIndex].nMotionFunctionType;
+				END_FOR
+				
+		    ELSIF(stCamTableID.nPointType=2)THEN
+				IF LTRUNC(_stCamXY.afPoint[0,1])<>0 THEN 
+					_bCamInError:=TRUE;
+				    nErrorID:=30443; 
+				    RETURN;
+				END_IF
+				IF (eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+					IF(_stCamXY.afPoint[0,0]-_fMasterStartPos)>=cMasterPosDealt THEN 
+						RETURN;
+                    ELSE
+                        IF (ABS(_fMasterStartPos-_stCamXY.afPoint[0,0])>cMasterPosDealt) THEN
+				           _bCamInError:=TRUE;
+					        nErrorID:=30440; 
+				            RETURN;
+						END_IF
+					END_IF
+			    ELSE
+					IF(_fMasterStartPos-_stCamXY.afPoint[0,0])>=cMasterPosDealt THEN 
+						RETURN;
+                    ELSE
+                        IF (ABS(_fMasterStartPos-_stCamXY.afPoint[0,0])>cMasterPosDealt) THEN
+				           _bCamInError:=TRUE;
+					        nErrorID:=30440; 
+				            RETURN;
+						END_IF
+					END_IF
+				END_IF
+				FOR _nIndex:=0 TO _nPointNum  DO
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_stCamXY.afPoint[_nIndex,0];
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDy:=_stCamXY.afPoint[_nIndex,1]+_fStartPos;
+					
+				END_FOR
+			   
+			ELSE
+				;
+			
+			END_IF
+			
+		ELSIF (_eMotionMode=E_StartMode.MC_STARTMODE_ABSOLUTE)THEN  //主绝对、从绝对
+			IF (stCamTableID.nPointType=1)THEN
+				IF (ABS(_fStartPos-_astCamXYVA[0].fDy)>cSlavePosDealt) THEN
+				        _bCamInError:=TRUE;
+				         nErrorID:=30441; 
+				       RETURN;
+				END_IF
+				IF (eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+					IF(_astCamXYVA[0].fDx-_fMasterStartPos)>=cMasterPosDealt THEN 
+						RETURN;
+                    ELSE
+                        IF (ABS(_fMasterStartPos-_astCamXYVA[0].fDx)>cMasterPosDealt) THEN
+				           _bCamInError:=TRUE;
+					        nErrorID:=30440; 
+				            RETURN;
+						END_IF
+					END_IF
+			    ELSE
+					IF(_fMasterStartPos-_astCamXYVA[0].fDx)>=cMasterPosDealt THEN 
+						RETURN;
+                    ELSE
+                        IF (ABS(_fMasterStartPos-_astCamXYVA[0].fDx)>cMasterPosDealt) THEN
+				           _bCamInError:=TRUE;
+					        nErrorID:=30440; 
+				            RETURN;
+						END_IF
+					END_IF
+				END_IF
+				
+				FOR _nIndex:=0 TO _nPointNum  DO
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDv:=_astCamXYVA[_nIndex].fDv;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDy:=_astCamXYVA[_nIndex].fDy;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDa:=_astCamXYVA[_nIndex].fDa;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDj:=_astCamXYVA[_nIndex].fDj;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_astCamXYVA[_nIndex].fDx;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].nMotionFunctionType:=_astCamXYVA[_nIndex].nMotionFunctionType;
+				END_FOR
+				
+				// 动态进入
+				IF (eStartMode=E_StartMode.MC_RAMPIN) THEN
+                  IF (eDirection=E_Direction.DIRECTION_POSITIVE) THEN
+						IF (stMasterAxis.stNcTOPLC.fActVelo<>0)AND (stSlaveAxis.stNcTOPLC.fActPos<_astCamXYVA[0].fDy)THEN
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDv:=stSlaveAxis.stNcTOPLC.fActVelo/ABS(stMasterAxis.stNcTOPLC.fActVelo);
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDy:=stSlaveAxis.stNcTOPLC.fActPos;
+						
+						END_IF
+				   ELSE
+					   IF (stMasterAxis.stNcTOPLC.fActVelo<>0)AND (stSlaveAxis.stNcTOPLC.fActPos>_astCamXYVA[0].fDy)THEN
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDv:=stSlaveAxis.stNcTOPLC.fActVelo/ABS(stMasterAxis.stNcTOPLC.fActVelo);
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDy:=stSlaveAxis.stNcTOPLC.fActPos;
+						
+						END_IF
+				   END_IF
+				END_IF
+				
+		    ELSIF(stCamTableID.nPointType=2)THEN
+				IF (ABS(_fStartPos-_stCamXY.afPoint[0,1])>cSlavePosDealt) THEN
+				       _bCamInError:=TRUE;
+				        nErrorID:=30441; 
+				        RETURN;
+				END_IF
+				IF (eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+					IF(_stCamXY.afPoint[0,0]-_fMasterStartPos)>cMasterPosDealt THEN 
+						RETURN;
+                    ELSE
+                        IF (ABS(_fMasterStartPos-_stCamXY.afPoint[0,0])>cMasterPosDealt) THEN
+				           _bCamInError:=TRUE;
+					        nErrorID:=30440; 
+				            RETURN;
+						END_IF
+					END_IF
+					
+			    ELSE
+					IF(_fMasterStartPos-_stCamXY.afPoint[0,0])>cMasterPosDealt THEN 
+						RETURN;
+                    ELSE
+                        IF (ABS(_fMasterStartPos-_stCamXY.afPoint[0,0])>cMasterPosDealt) THEN
+				           _bCamInError:=TRUE;
+					        nErrorID:=30440; 
+				            RETURN;
+						END_IF
+					END_IF
+					
+				END_IF
+				FOR _nIndex:=0 TO _nPointNum  DO
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_stCamXY.afPoint[_nIndex,0];
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDy:=_stCamXY.afPoint[_nIndex,1];
+					
+				END_FOR
+			    
+				// 动态进入
+				IF (eStartMode=E_StartMode.MC_RAMPIN) THEN
+                  IF (eDirection=E_Direction.DIRECTION_POSITIVE) THEN
+						IF (stMasterAxis.stNcTOPLC.fActVelo<>0)AND (stSlaveAxis.stNcTOPLC.fActPos<_stCamXY.afPoint[0,1]) THEN
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDv:=stSlaveAxis.stNcTOPLC.fActVelo/ABS(stMasterAxis.stNcTOPLC.fActVelo);
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDy:=stSlaveAxis.stNcTOPLC.fActPos;
+						
+						END_IF
+				   ELSE
+					   IF (stMasterAxis.stNcTOPLC.fActVelo<>0)AND (stSlaveAxis.stNcTOPLC.fActPos>_stCamXY.afPoint[0,1])THEN
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDv:=stSlaveAxis.stNcTOPLC.fActVelo/ABS(stMasterAxis.stNcTOPLC.fActVelo);
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDy:=stSlaveAxis.stNcTOPLC.fActPos;
+						
+						END_IF
+				   END_IF
+				END_IF
+			ELSE
+				;
+			
+			END_IF
+			
+		ELSE                                                           //主相对、从绝对
+			IF (stCamTableID.nPointType=1)THEN
+				IF(eStartMode<>E_StartMode.MC_RAMPIN)THEN
+					IF ABS(_fStartPos-_astCamXYVA[0].fDy)>cSlavePosDealt THEN
+					   _bCamInError:=TRUE;
+						nErrorID:=30441; 
+					   RETURN;
+					END_IF
+					IF LTRUNC(_astCamXYVA[0].fDx)<>0 THEN 
+						_bCamInError:=TRUE;
+						nErrorID:=30442; 
+						RETURN;
+					END_IF
+				END_IF
+				FOR _nIndex:=0 TO _nPointNum  DO
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDv:=_astCamXYVA[_nIndex].fDv;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDy:=_astCamXYVA[_nIndex].fDy;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDa:=_astCamXYVA[_nIndex].fDa;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDj:=_astCamXYVA[_nIndex].fDj;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_astCamXYVA[_nIndex].fDx+_fMasterStartPos;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].nMotionFunctionType:=_astCamXYVA[_nIndex].nMotionFunctionType;
+				END_FOR
+				 // 主轴位置补偿
+				FOR _nIndex:=1 TO _nPointNum  DO
+					
+					   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_astCamXYVA[_nIndex].fDx+_fMasterStartPos-_fClibPos;
+					   //stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDy:=_astCamXYVA[_nIndex].fDy+stMasterAxis.stNcTOPLC.fActVelo*0.0476-5658;
+				END_FOR	
+				
+				// 动态进入
+				IF (eStartMode=E_StartMode.MC_RAMPIN) THEN
+                  IF (eDirection=E_Direction.DIRECTION_POSITIVE) THEN
+						IF (stMasterAxis.stNcTOPLC.fActVelo<>0)AND (stSlaveAxis.stNcTOPLC.fActPos<_astCamXYVA[0].fDy)THEN
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDv:=stSlaveAxis.stNcTOPLC.fActVelo/stMasterAxis.stNcTOPLC.fActVelo;
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDy:=stSlaveAxis.stNcTOPLC.fActPos;
+						
+						END_IF
+				   ELSE
+					   IF (stMasterAxis.stNcTOPLC.fActVelo<>0)AND (stSlaveAxis.stNcTOPLC.fActPos>_astCamXYVA[0].fDy)THEN
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDv:=stSlaveAxis.stNcTOPLC.fActVelo/stMasterAxis.stNcTOPLC.fActVelo;
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDy:=stSlaveAxis.stNcTOPLC.fActPos;
+						
+						END_IF
+				   END_IF
+				END_IF
+				
+		    ELSIF(stCamTableID.nPointType=2)THEN
+				IF (ABS(_fStartPos-_stCamXY.afPoint[0,1])>cSlavePosDealt) THEN
+				   _bCamInError:=TRUE;
+				    nErrorID:=30441; 
+				   RETURN;
+				END_IF
+				IF LTRUNC(_stCamXY.afPoint[0,0])<>0 THEN 
+					_bCamInError:=TRUE;
+				    nErrorID:=30442; 
+				    RETURN;
+				END_IF
+				FOR _nIndex:=0 TO _nPointNum  DO
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_stCamXY.afPoint[_nIndex,0]+_fMasterStartPos;
+					stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDy:=_stCamXY.afPoint[_nIndex,1];
+				END_FOR
+			     // 主轴位置补偿
+				FOR _nIndex:=1 TO _nPointNum  DO
+					   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[_nIndex].fDx:=_stCamXY.afPoint[_nIndex,0]+_fMasterStartPos-_fClibPos;	  
+				END_FOR	
+				// 动态进入
+				IF (eStartMode=E_StartMode.MC_RAMPIN) THEN
+                  IF (eDirection=E_Direction.DIRECTION_POSITIVE) THEN
+						IF (stMasterAxis.stNcTOPLC.fActVelo<>0)AND (stSlaveAxis.stNcTOPLC.fActPos<_stCamXY.afPoint[0,1]) THEN
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDv:=stSlaveAxis.stNcTOPLC.fActVelo/ABS(stMasterAxis.stNcTOPLC.fActVelo);
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDy:=stSlaveAxis.stNcTOPLC.fActPos;
+						
+						END_IF
+				   ELSE
+					   IF (stMasterAxis.stNcTOPLC.fActVelo<>0)AND (stSlaveAxis.stNcTOPLC.fActPos>_stCamXY.afPoint[0,1])THEN
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDv:=stSlaveAxis.stNcTOPLC.fActVelo/ABS(stMasterAxis.stNcTOPLC.fActVelo);
+						   stSlaveAxis.stPLCTONC.stCamParam.aCamBuffer[0].fDy:=stSlaveAxis.stNcTOPLC.fActPos;
+						
+						END_IF
+				   END_IF
+				END_IF
+			ELSE
+				;
+			
+			END_IF
+			
+		END_IF
+		stSlaveAxis.stPLCTONC.stCamParam.bCamLoad:=TRUE;
+		_bPathCalDone:=TRUE;
+   END_IF 
+ELSE    //动态更新数据
+	A_BufferUpdate();
+	
+END_IF
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_StopPathGeneration" Id="{1a3a5450-faf8-4930-aa21-83d044791861}">
+      <Implementation>
+        <ST><![CDATA[	
+_fPostion:=0.5*stSlaveAxis.stNcTOPLC.fActVelo*stSlaveAxis.stNcTOPLC.fActVelo/_fDec;
+IF stSlaveAxis.stAxisStatus.bPositiveDirection THEN
+	stSlaveAxis.stPLCTONC.stEndPosition.fPosition:=_fPostion+stSlaveAxis.stNcTOPLC.fActPos;
+ELSE
+	stSlaveAxis.stPLCTONC.stEndPosition.fPosition:=stSlaveAxis.stNcTOPLC.fActPos-_fPostion;
+END_IF
+
+stSlaveAxis.stPLCTONC.fTargetVelocity:=stSlaveAxis.stNcTOPLC.fActVelo;
+stSlaveAxis.stPLCTONC.stEndPosition.fVelocity:=0;
+stSlaveAxis.stPLCTONC.stEndPosition.fAccleration:=_fDec;
+stSlaveAxis.stPLCTONC.stEndPosition.fDeceleration:=_fDec;]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_UpstateStatus" Id="{8629b5c5-a5f1-423f-bdd9-128cba9484a2}">
+      <Implementation>
+        <ST><![CDATA[;]]></ST>
+      </Implementation>
+    </Action>
+    <LineIds Name="FTS_MCCamIn">
+      <LineId Id="3" Count="200" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_MCCamIn.A_BufferUpdate">
+      <LineId Id="2" Count="350" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_MCCamIn.A_CamOutStop">
+      <LineId Id="2" Count="22" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_MCCamIn.A_CommandCheck">
+      <LineId Id="2" Count="102" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_MCCamIn.A_ParamCheck">
+      <LineId Id="2" Count="275" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_MCCamIn.A_PathGenaration">
+      <LineId Id="2" Count="348" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_MCCamIn.A_StopPathGeneration">
+      <LineId Id="2" Count="10" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_MCCamIn.A_UpstateStatus">
+      <LineId Id="1" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

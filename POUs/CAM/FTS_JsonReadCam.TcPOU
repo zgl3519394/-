@@ -1,0 +1,369 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_JsonReadCam" Id="{41ae339b-ef11-4e7e-9351-82f5a7435d6c}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_JsonReadCam
+VAR_IN_OUT
+	pCamTables: ARRAY[0..GVL_MC.cMasterNum, 0..GVL_MC.cCAMTableNum] OF ST_CamCollection;
+END_VAR
+VAR_INPUT
+	bExecute: BOOL;
+	sJsonPath: STRING;
+END_VAR
+VAR_OUTPUT
+	bDone: BOOL;
+	bBusy: BOOL;
+	bError: BOOL;
+	nErrorID: UDINT;
+	hrErrorCode: HRESULT;
+END_VAR
+VAR
+	_bLoaded: BOOL;
+	_bLoad: BOOL;
+	_bHasMember: BOOL;
+	_bParamError: BOOL := FALSE;
+	_nStep: INT;
+	_nArraySize: UINT;
+	_nPointSize: UINT;
+	_nIndex: UINT;
+	_nTableNum: UINT;
+	_nSubIndex: UINT;
+	_nMasterId: UINT;
+	_stTable: ST_CamCollection;
+	_stTableNoData: ST_CamCollection;
+	_sJsonRoot: SJsonValue;
+	_sJsonProp: SJsonValue;
+	_sJsonMasProp: SJsonValue;
+	_sJsonSubRoot: SJsonValue;
+	_pJsonValue: Tc3_JsonXml.PVOID;
+	_pJsonSubValue: Tc3_JsonXml.PVOID;
+	_fbTrig: R_TRIG;
+	_fbJson: FB_JsonDomParser;
+	_fbDoneTon: TON;
+	fMasterAngeleMax: INT;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[_fbTrig(CLK:=bExecute , Q=> );
+
+IF _fbTrig.Q AND (_nStep=0)THEN
+	_nStep:=10;
+	
+END_IF
+
+CASE _nStep  OF 
+	0:
+	    IF NOT bExecute  THEN
+		   bDone:=FALSE; 
+		   bError:=FALSE;
+		   nErrorID:=0;
+	    END_IF
+	    RETURN ;
+ 
+    10:
+	     bBusy:=TRUE;
+		 bDone:=FALSE;   
+	     bError:=FALSE;
+		 nErrorId:=0;
+		 _bLoad:=TRUE;
+		 _nStep:=_nStep+10;
+		 
+    20:
+	     IF _bLoad  THEN
+			 _bLoaded :=_fbJson.LoadDocumentFromFile(sFile:=sJsonPath , bExec:=_bLoad , hrErrorCode=>hrErrorCode );
+			 
+		 ELSE
+			 IF (hrErrorCode<>0) THEN
+				 _nStep:=100;
+				 nErrorId:=DINT_TO_UDINT(hrErrorCode);
+				 
+			 ELSE
+				 IF _bLoaded THEN
+			        _nStep:=_nStep+10;
+					_bLoaded:=FALSE;
+				 ELSE
+					_nStep:=100;
+                    nErrorId:=32566;
+			     END_IF 
+			 END_IF 
+		 END_IF 
+		 
+    30:
+	    _nTableNum:=0;
+	    _sJsonRoot:=_fbJson.GetDocumentRoot();
+		 _sJsonMasProp := _fbJson.FindMember(_sJsonRoot,'cam');
+
+         _sJsonSubRoot := _fbJson.FindMember(_sJsonMasProp, 'master_id');
+         _nMasterId:=STRING_TO_UINT(_fbJson.GetString(_sJsonSubRoot));
+  
+         _sJsonSubRoot := _fbJson.FindMember(_sJsonMasProp, 'master_max_velo');
+        _stTable.fMasterMaxVelo := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+    
+		_sjsonProp := _fbJson.FindMemberPath(_sJsonMasProp, 'point_type_xyva');
+        _nArraySize := UDINT_TO_UINT(_fbJson.GetArraySize(_sjsonProp));
+		_nTableNum:=_nArraySize;
+        IF (_nArraySize<>0) THEN
+				FOR  _nIndex:=0 TO (_nArraySize-1)  DO
+				  _pJsonValue := _fbJson.GetArrayValueByIdx(_sjsonProp,_nIndex);
+				  _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'table_id');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.nTableId:= STRING_TO_UDINT(_fbJson.Getstring(_sJsonSubRoot));
+				  END_IF
+				   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'periodic');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.bPeriodic := STRING_TO_BOOL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF
+				   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'master_absolute');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.bMasterAbsolute := STRING_TO_BOOL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF
+				   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'slave_absolute');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.bSlaveAbsolute := STRING_TO_BOOL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF
+				
+				  _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'slave_cycle');
+				  IF (_sJsonSubRoot <> 0) THEN
+					 _stTable.fSlaveCycle := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF
+				   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'master_start_pos');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.fMasterStartPos := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF
+				   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'master_end_pos');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.fMasterEndPos := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF
+				   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'slave_start_pos');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.fSlaveStartPos := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF
+				   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'slave_end_pos');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.fSlaveEndPos := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF
+				  
+				  _pJsonSubValue:=_fbJson.FindMemberPath(_pJsonValue, 'dot');
+				  _nPointSize:=UDINT_TO_UINT(_fbJson.GetArraySize(_pJsonSubValue));
+				  
+				  FOR  _nSubIndex:=0 TO _nPointSize  DO
+						   _pJsonValue := _fbJson.GetArrayValueByIdx(_pJsonSubValue,_nSubIndex);
+						   
+						   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'master_pos');
+						   IF (_sJsonSubRoot <> 0) THEN
+							   _stTable.astCamXYVA[_nSubIndex].fDx:= STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+						   END_IF
+						   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'slave_pos');
+						   IF (_sJsonSubRoot <> 0) THEN
+							   _stTable.astCamXYVA[_nSubIndex].fDy := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+						   END_IF
+						   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'slave_velo');
+						   IF (_sJsonSubRoot <> 0) THEN
+							   _stTable.astCamXYVA[_nSubIndex].fDv := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+						   END_IF
+						   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'slave_acc');
+						   IF (_sJsonSubRoot <> 0) THEN
+							   _stTable.astCamXYVA[_nSubIndex].fDa := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+						   END_IF
+						   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'slave_jerk');
+						   IF (_sJsonSubRoot <> 0) THEN
+							   _stTable.astCamXYVA[_nSubIndex].fDj := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+						   END_IF
+						   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'function_type');
+						   IF (_sJsonSubRoot <> 0) THEN
+							   _stTable.astCamXYVA[_nSubIndex].nMotionFunctionType := STRING_TO_UINT(_fbJson.Getstring(_sJsonSubRoot));
+							 
+						   END_IF
+					  
+					  END_FOR
+				  
+				  _stTable.nPointType:= 1; 
+				  _stTable.nElements:=_nPointSize;
+				  _stTable.nMasterId:=_nMasterId;
+				  //参数校验
+					IF (_nMasterID>(GVL_MC.cMasterNum+1)) OR  (_nMasterID<=0) THEN
+						_bParamError:=TRUE;
+						nErrorId:=32567;
+						EXIT;
+					END_IF
+					
+					IF (_stTable.nTableId>(GVL_MC.cCAMTableNum+1))OR (_stTable.nTableId<=0)THEN
+						_bParamError:=TRUE;
+						nErrorId:=32568;
+						EXIT;
+					END_IF
+				  pCamTables[_nMasterId-1,_stTable.nTableId-1]:=_stTable;
+				  _stTable:=_stTableNoData;
+				END_FOR
+			END_IF 
+			//END_IF
+		    _nStep:=_nStep+10;
+			IF _bParamError  THEN
+			   _nStep:=100;
+		       // nErrorId:=32586;
+			   _bParamError:=FALSE;
+		    END_IF
+  
+   40:
+           _sJsonRoot:=_fbJson.GetDocumentRoot();
+		   _sJsonMasProp := _fbJson.FindMember(_sJsonRoot,'cam');
+		    _sjsonProp := _fbJson.FindMemberPath(_sJsonMasProp, 'point_type_xy');
+            _nArraySize := UDINT_TO_UINT(_fbJson.GetArraySize(_sjsonProp));
+			IF (_nArraySize<>0) THEN
+
+				FOR  _nIndex:=0 TO (_nArraySize-1)  DO
+				  _pJsonValue := _fbJson.GetArrayValueByIdx(_sjsonProp,_nIndex);
+				  
+				  _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'table_id');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.nTableId:= STRING_TO_UDINT(_fbJson.Getstring(_sJsonSubRoot));
+				  END_IF
+				  
+				   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'periodic');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.bPeriodic := STRING_TO_BOOL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF
+				   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'master_absolute');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.bMasterAbsolute := STRING_TO_BOOL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF
+				   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'slave_absolute');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.bSlaveAbsolute := STRING_TO_BOOL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF
+				  
+				  _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'slave_cycle');
+				  IF (_sJsonSubRoot <> 0) THEN
+					 _stTable.fSlaveCycle := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF
+				   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'master_start_pos');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.fMasterStartPos := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF
+				   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'master_end_pos');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.fMasterEndPos := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF
+				   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'slave_start_pos');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.fSlaveStartPos := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF
+				   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'slave_end_pos');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.fSlaveEndPos := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF
+				   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'table_master_min');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.stCamXY.fTableMasterMin := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF
+				   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'table_master_max');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.stCamXY.fTableMasterMax := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF
+				   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'table_slave_min');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.stCamXY.fTableSlaveMin := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF
+				   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'table_slave_max');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.stCamXY.fTableSlaveMax := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF
+				  (* _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'master_max_velo');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_stTable.fMasterMaxVelo := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+					
+				  END_IF*)
+				  _pJsonSubValue:=_fbJson.FindMemberPath(_pJsonValue, 'dot');
+				  _nPointSize:=UDINT_TO_UINT(_fbJson.GetArraySize(_pJsonSubValue));
+				  
+			      FOR  _nSubIndex:=0 TO _nPointSize  DO
+						   _pJsonValue := _fbJson.GetArrayValueByIdx(_pJsonSubValue,_nSubIndex);
+						   
+						   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'master_pos');
+						   IF (_sJsonSubRoot <> 0) THEN
+							   _stTable.stCamXY.afPoint[_nSubIndex,0]:= STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+						   END_IF
+						   _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'slave_pos');
+						   IF (_sJsonSubRoot <> 0) THEN
+							   _stTable.stCamXY.afPoint[_nSubIndex,1] := STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+						   END_IF
+						  
+			     END_FOR
+				  
+				
+				  _stTable.nPointType:= 2; 
+				  _stTable.nMasterId:=_nMasterId;
+				  _stTable.nElements:=_nPointSize;
+				  IF (_nMasterID>(GVL_MC.cMasterNum+1)) OR  (_nMasterID<=0) THEN
+						_bParamError:=TRUE;
+						nErrorId:=32567;
+						EXIT;
+					END_IF
+					
+					IF (_stTable.nTableId>(GVL_MC.cCAMTableNum+1))OR (_stTable.nTableId<=0)THEN
+						_bParamError:=TRUE;
+						nErrorId:=32567;
+						EXIT;
+					END_IF
+				 pCamTables[_nMasterId-1,_stTable.nTableId-1]:=_stTable;
+				END_FOR
+			END_IF 
+		  _nStep:=_nStep+10;
+          IF _bParamError  THEN
+			   _nStep:=100;
+		        //nErrorId:=32587;
+			   _bParamError:=FALSE;
+		   END_IF
+	  
+	    
+   50:
+        bBusy:=FALSE;
+	    bDone:=TRUE; 
+		//_fbDoneTon(IN:=FALSE , PT:= T#500MS, Q=> , ET=> );
+		IF NOT bExecute THEN
+	        _nStep:=_nStep+10;
+		ELSE
+			_nStep:=0;
+		END_IF
+   
+   60:
+       // _fbDoneTon(IN:=TRUE , PT:= T#500MS, Q=> , ET=> );
+		//IF _fbDoneTon.Q  THEN 
+	        bDone:=FALSE;   
+            _nStep:=0;
+			_fbDoneTon(IN:=FALSE , PT:= T#500MS, Q=> , ET=> );
+      //  END_IF 
+
+   100:  // error handle 
+         bBusy:=FALSE;
+		 bDone:=FALSE;   
+	     bError:=TRUE;
+         _nStep:=0;
+
+END_CASE]]></ST>
+    </Implementation>
+    <LineIds Name="FTS_JsonReadCam">
+      <LineId Id="3" Count="315" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

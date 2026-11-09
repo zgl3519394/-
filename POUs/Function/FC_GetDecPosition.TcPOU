@@ -1,0 +1,40 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FC_GetDecPosition" Id="{42c27b1c-71cc-45d2-a03c-56c05c3bf386}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION FC_GetDecPosition : ST_Point
+VAR_INPUT
+	fTime: LREAL;
+	///fTa             :LREAL;
+	///fTv             :LREAL;
+	fTd: LREAL;
+	fVeloStart: LREAL;
+	fVeloEnd: LREAL;
+	///fTargetVelo     :LREAL;
+	fDec: LREAL;
+	fInitalPos: LREAL;
+	eDirection: E_Direction;
+END_VAR
+VAR
+	_fDec: LREAL;
+	_fVelocity: LREAL;
+	_fPosition: LREAL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[_fDec := fDec ;
+_fVelocity := fVeloStart-_fDec*fTime;
+IF(eDirection=E_Direction.DIRECTION_POSITIVE)THEN 
+   _fPosition:=fInitalPos+fVeloStart*fTime-0.5*_fDec*fTime*fTime;
+ELSE
+	 _fPosition:=fInitalPos-(fVeloStart*fTime-0.5*_fDec*fTime*fTime);
+END_IF
+FC_GetDecPosition.fPosition:= _fPosition;
+FC_GetDecPosition.fVelocity:= _fVelocity;
+FC_GetDecPosition.fDeceleration:= fDec ;]]></ST>
+    </Implementation>
+    <LineIds Name="FC_GetDecPosition">
+      <LineId Id="3" Count="8" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

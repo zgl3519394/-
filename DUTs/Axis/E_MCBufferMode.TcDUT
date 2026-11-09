@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_MCBufferMode" Id="{49474d10-3b93-424e-94af-eda17f578005}">
+    <Declaration><![CDATA[{attribute 'qualified_only' := ''}
+{attribute 'strict' := ''}
+TYPE E_MCBufferMode :
+(
+	ABORTING := 0,
+	BUFFERED,
+	BLENDING_LOW,
+	BLENDING_PREVIOUS,
+	BLENDING_NEXT,
+	BLENDING_HIGH
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

@@ -1,0 +1,33 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_PathRef" Id="{306503d6-90fe-4282-a305-07ebd26d9b76}">
+    <Declaration><![CDATA[TYPE ST_PathRef :
+STRUCT
+	bCalculateDone: BOOL;
+	_nPathSegmentNum: UINT;
+	///夹具长度*0.5
+	fGap: LREAL;
+	///夹具长度*0.5+gap
+	fSetGap: LREAL;
+	///成组内部gap   03.31
+	fGroupInGap: LREAL;
+	fSlaveGap: LREAL;
+	fClampLength: LREAL;
+	fDisMin: LREAL;
+	fDistance: LREAL;
+	fTargetPos: LREAL;
+	///匀速段速度
+	fSetVelocity: LREAL;
+	fTargetVelocity: LREAL;
+	///与上一任动子初始位置偏差
+	fDealtInPos: LREAL;
+	fTotalTime: LREAL;
+	fVeloRatio: LREAL;
+	///05.0改为3段
+	aExecutablePath: ARRAY[0..2] OF ST_PathSegment;
+	aSafePath: ARRAY[0..2] OF ST_PathSegment;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

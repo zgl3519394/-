@@ -1,0 +1,127 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_McHome" Id="{3ef59a3e-2524-4a22-8d1f-904564da2fa0}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_McHome
+VAR_IN_OUT
+	stAxis: ST_Axis;
+END_VAR
+VAR_INPUT
+	bExecute: BOOL;
+	fPosition: LREAL;
+END_VAR
+VAR_OUTPUT
+	bDone: BOOL;
+	bBusy: BOOL;
+	bActive: BOOL;
+	bCommandAborted: BOOL;
+	bError: BOOL;
+	nErrorID: UDINT;
+END_VAR
+VAR
+	_nSign: INT;
+	_nStep: INT;
+	_fTotalTime: LREAL;
+	_fCurrentTime: LREAL;
+	_fStartVelocity: LREAL;
+	_fStartPosition: LREAL;
+	_nCounter: INT;
+	_fPostion: LREAL;
+	_fbTrig: R_TRIG;
+	_fbTon: TON;
+	_fbDoneTon: TON;
+END_VAR
+VAR CONSTANT
+	tcDoneTime: TIME := TIME#0MS;
+	tcWaitTime: TIME := TIME#200MS;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[_fbTrig(CLK:=bExecute , Q=> );
+
+IF _fbTrig.Q THEN
+	_nStep:=10;
+	
+END_IF
+
+CASE _nStep OF
+	0:(* check axis satus*)
+	    IF NOT bExecute THEN 
+		   bError:=FALSE;
+		   nErrorId:=0;
+		  
+	    END_IF
+	    RETURN;
+   10:
+      bBusy:=TRUE;
+	  bError:=FALSE;
+	  bActive:=TRUE;
+	  bCommandAborted:=FALSE;
+	  nErrorID:=0;
+	  bDone:=FALSE;
+	  
+      stAxis.stPLCTONC.nControlWord:=16#06;
+	  stAxis.stAxisStatus.bHoming:=TRUE;
+	  
+	  _fbTon(IN:=FALSE, PT:=tcWaitTime  , Q=> , ET=> );
+	  _nStep:=20;
+      
+   20:
+   
+      _fbTon(IN:=TRUE, PT:=tcWaitTime  , Q=> , ET=> );
+	  IF _fbTon.Q  THEN     
+	     _fbTon(IN:=FALSE, PT:=tcWaitTime  , Q=> , ET=> );
+		 bBusy:=FALSE;
+		 bActive:=FALSE;
+		 bDone:=TRUE;
+		 (******change axis state********)
+		 stAxis.stAxisStatus.bHoming:=FALSE;
+		 stAxis.stNcTOPLC.fActPos:=fPosition;
+		 stAxis.stNcTOPLC.fTargetPos:=fPosition;
+		 stAxis.stNcTOPLC.fSetPos:=fPosition;
+		 stAxis.stNcTOPLC.fModuloSetPos:=fPosition;
+		 stAxis.stNcTOPLC.nModuloSetTurns:=0;
+		 stAxis.stNcTOPLC.nCuRoadID :=stAxis.stCodToNCParam.nRoadID;
+		 stAxis.stCodToNCParam.fActualPos:=fPosition;   //02.24
+		 
+         _fbDoneTon(IN:=FALSE, PT:=tcDoneTime , Q=> , ET=> );
+		 _nStep:=30; 
+	   END_IF 
+	  
+       IF stAxis.stAxisStatus.bStopping  THEN
+			bCommandAborted:=TRUE;
+			bBusy:=FALSE;
+			bActive:=FALSE;
+		    bDone:=TRUE;
+		   (******change axis state********)
+		    stAxis.stAxisStatus.bHoming:=FALSE;
+		    stAxis.stAxisStatus.bHomed:=FALSE;
+			_nStep:=0;	
+	    END_IF
+   30:
+       _fbDoneTon(IN:=TRUE, PT:=tcDoneTime , Q=> , ET=> );
+       IF _fbDoneTon.Q THEN
+		   bDone:=FALSE;
+		   _fbDoneTon(IN:=FALSE, PT:=tcDoneTime , Q=> , ET=> );
+		   _nStep:=0;
+		    stAxis.stAxisStatus.bHomed:=TRUE;
+	   END_IF
+   
+   100:
+       bBusy:=FALSE;
+	   bError:=TRUE;
+	   bActive:=false;
+	   stAxis.stAxisStatus.bError:=TRUE;
+	   stAxis.stAxisStatus.nErrorId:=nErrorID;
+	   stAxis.stAxisStatus.bHoming:=FALSE;
+	   stAxis.stAxisStatus.bHomed:=FALSE;
+	   _nStep:=0;
+	  
+	  
+END_CASE]]></ST>
+    </Implementation>
+    <LineIds Name="FTS_McHome">
+      <LineId Id="3" Count="80" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

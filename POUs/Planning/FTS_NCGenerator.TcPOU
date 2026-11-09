@@ -1,0 +1,4604 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_NCGenerator" Id="{a3e699e1-6dc3-4e5b-87a3-a1da63e6e80a}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_NCGenerator
+VAR_IN_OUT
+	stAxis: ST_Axis;
+END_VAR
+VAR_INPUT
+	///滤波窗口大小
+	nWindowSize: UINT;
+	fCycleTime: LREAL;
+END_VAR
+VAR
+	///_bCalStart             :BOOL:=FALSE;
+	_bEnable: BOOL;
+	///_bAutoPlan             :BOOL:=FALSE;
+	_bCalculateDone: BOOL;
+	_bSynMode: BOOL := FALSE;
+	_bFisrtUpdate: BOOL := FALSE;
+	_bEndOfProfile: BOOL := FALSE;
+	_bEstopping: BOOL := FALSE;
+	///03.31     
+	_bIsGroupMember: BOOL := FALSE;
+	_bAddNodeOk: BOOL := FALSE;
+	_bDeleteNodeOk: BOOL := FALSE;
+	_bInsertOk: BOOL := FALSE;
+	_bPreEstop  :BOOL:=FALSE;
+	_bPreDyEstop  :BOOL:=FALSE;
+	_nIndex: INT;
+	_nNodeIndex: UINT;
+	_nLastIndex: INT;
+	_nPointIndex: UINT;
+	_nForwardIndex: INT;
+	_nPreIndex: INT;
+	_nState: INT;
+	_nPathSegment: INT;
+	_nSysType: UINT;
+	_nCamBufferNum: UINT := 0;
+	_nCuRoadID: UINT;
+	_nLastRoadID: UINT;
+	_nMoverCounter: UINT;
+	_nLastMoverCounter: UINT;
+	_fRealDis: LREAL;
+	_fPos: LREAL;
+	_fSynPos: LREAL;
+	_fSynVelo: LREAL;
+	_lastVelo: LREAL;
+	_fVeloStart: LREAL;
+	_fVeloEnd: LREAL;
+	_fTargetVelo: LREAL;
+	_fStartPos: LREAL;
+	_fEndPos: LREAL;
+	_fVeloStart_2: LREAL;
+	_fVeloEnd_2: LREAL;
+	_fTargetVelo_2: LREAL;
+	_fDistance_2: LREAL;
+	_fAcc: LREAL;
+	_fDec: LREAL;
+	_fJerk: LREAL;
+	_fAcc_2: LREAL;
+	_fDec_2: LREAL;
+	_fDistance: LREAL;
+	///_fDistance_2             :LREAL;
+	_fSetVelo: LREAL;
+	///夹具长度*0.5
+	_fGap: LREAL;
+	_fGapSet: LREAL;
+	_fTime: LREAL;
+	_fDisSet: LREAL;
+	_fForwardTime: LREAL;
+	_fDealtDis: LREAL;
+	_fDealt_S: LREAL;
+	_fPre_S: LREAL;
+	_fPreDealt_S: LREAL;
+	_fDealt_S1: LREAL;
+	_fPreCuVel: LREAL;
+	_fCuVel: LREAL;
+	_fPreTaVel: LREAL;
+	_fPreAcc: LREAL;
+	_fNewAcc: LREAL;
+	_fDecTime: LREAL;
+	_fDecTime_1: LREAL;
+	_fPreCurTime: LREAL;
+	_fPreSeg1TotalTime: LREAL;
+	_fDisDiff: LREAL;
+	_fDealDecTime: LREAL;
+	_fMinDis: LREAL;
+	_fNewAccDis: LREAL;
+	_fReminDis: LREAL;
+	_fAccMisDis: LREAL;
+	_fAccMisDis_1: LREAL;
+	_fNewVelo: LREAL;
+	_fStartLinearPos: LREAL;
+	_fLinearDealt: LREAL;
+	_fMasterPos: LREAL;
+	_fMasterStartPos: LREAL;
+	_fMasterEndPos: LREAL;
+	_fSlaveStartPos: LREAL;
+	_fDePos: LREAL;
+	_fDeCuVelo: LREAL;
+	_fVeloRatio: LREAL;
+	_fPos_X: LREAL;
+	_fDealt_X: LREAL;
+	_fLastPos: LREAL;
+	_fMasterGap: LREAL;
+	_fRoad1_Lenth: LREAL;
+	_fRoad2_Lenth: LREAL;
+	_fCuRoadLenth: LREAL;
+	_fPosTemp: LREAL;
+	_fLastPosDeat: LREAL;
+	_fLastPosNC: LREAL;
+	_fPosIn: LREAL;
+	_fStopPos: LREAL;
+	_fEStopPos: LREAL;
+	_fPreStopPos: LREAL;
+	_fUpNewPos: LREAL;
+	_fUpNewPosTemp: LREAL;
+	/// 成组组内gap 03.31
+	_fGroupInGap: LREAL;
+	///06.30
+	_fSetDealtGap: LREAL;
+	_fPyRealdis  :LREAL; //02.28
+	_fLastRoadPos :LREAL;
+	_fBreakDis    :LREAL;   
+	_fSetSafeDis  :LREAL;
+	_fLastPtyPos  :LREAL;
+	_fPtyVelo    :LREAL;
+	
+	_fPreDealtP  :LREAL;
+	
+	///_fEndPos               :LREAL;  //03.26
+	_sMessage3: STRING;
+	_sMessage: STRING(1024);
+	_sMessage2: STRING(1024);
+	
+	_pPremover: POINTER TO ST_Axis;
+	_pNextRoadPremover: POINTER TO ST_Axis;
+	///_fStopTime             :LREAL;
+	_ePlanningMode: E_PlanningMode;
+	_stAxis_Point: ST_Point;
+	_stLastAxis_Point: ST_Point;
+	_stForwardAxis_Point: ST_Point;
+	_stPreAxis_Point: ST_Point;
+	_stAxisNo: ST_Axis;
+	_eDirection: E_Direction;
+	///04.08
+	_eSetDirection: E_Direction;
+	_stTimeInfo: ST_TimeRef;
+	_stTimeInfo_2: ST_TimeRef;
+	_stPathRef: ST_PathRef;
+	_stNoPathRef: ST_PathRef;
+	_stPolynom5Factor: ST_Polynom5Factor;
+	_stSShapedParam: ST_SParam;
+	_stCamParam: ST_CamParam;
+	_aLinearPosition: ARRAY[1..100] OF LREAL;
+	_aCamBuffer: ARRAY[0..9] OF ST_CamXYVA;
+	_fbTrig: R_TRIG;
+	_fbSlaveTrig: R_TRIG;
+	_fbPathTrig: R_TRIG;
+	_fbDecPathTrig: R_TRIG;
+	_fbCamPointUpdateTrig: R_TRIG;
+	_fbCamBufUpdateTrig: R_TRIG;
+	_fbClearFtrig: F_TRIG;
+	_fbDecNextPathTrig: R_TRIG;
+	_fbAxis: FB_TrajectoryPlanning;
+	_fbPreAxis: FB_TrajectoryPlanning;
+	_fbTon: TON;
+	_fbFilterV2: FB_FilterWindowV2;
+	_fbStopTrig: R_TRIG;
+	_fbStopTon: TON;
+	_fbAxisGroupList: FTS_AxisGroupList;
+	_fbTrigRoadUpdate: R_TRIG;
+	_fbTrigRoadDeleUpdate: R_TRIG;
+	_fbTonCuPos:ton ; //02.28
+END_VAR
+VAR CONSTANT
+	//cDebug: BOOL := TRUE;
+	cStateIdle: INT := 0;
+	cStateReady: INT := 1;
+	cStatePathGenerator: INT := 2;
+	cDealtGap: REAL := 10000;
+	//cNcCycle: REAL := 0.001;
+	cPointBuffer: UINT := 10;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+// control logic 
+IF stAxis.stAxisStatus.bPositiveDirection THEN 
+	_eDirection:=E_Direction.DIRECTION_POSITIVE;
+	
+ELSIF stAxis.stAxisStatus.bNegativeDirection  THEN
+	_eDirection:=E_Direction.DIRECTION_NEGATIVE;
+	
+ELSE
+	_eDirection:=E_Direction.DIRECTION_POSITIVE;
+END_IF
+
+//根据不同road 前置和后置配置  04/02
+IF (stAxis.stPLCTONC.nRoadID_2<>0)AND (stAxis.stPLCTONC.nRoadID_1<>0)AND(stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_2)THEN   //04.02
+	
+		IF NOT stAxis.stPLCTONC.bRoadDirection  THEN
+			IF (stAxis.stAxisStatus.pPremover=0)THEN 
+				_pPremover:=ADR(_stAxisNo);
+			ELSE
+				_pPremover:=stAxis.stAxisStatus.pPremover;
+			END_IF
+		ELSE
+			IF (stAxis.stAxisStatus.pAftermover=0)THEN 
+				_pPremover:=ADR(_stAxisNo);
+			ELSE
+				_pPremover:=stAxis.stAxisStatus.pAftermover;
+			END_IF
+		END_IF	
+ELSE
+	IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN 
+		IF (stAxis.stAxisStatus.pPremover=0)THEN 
+			_pPremover:=ADR(_stAxisNo);
+		ELSE
+			_pPremover:=stAxis.stAxisStatus.pPremover;
+		END_IF
+	ELSE
+		IF (stAxis.stAxisStatus.pAftermover=0)THEN 
+			_pPremover:=ADR(_stAxisNo);
+		ELSE
+			_pPremover:=stAxis.stAxisStatus.pAftermover;
+		END_IF
+	
+	END_IF
+END_IF
+
+IF (stAxis.stAxisStatus.pNextRoadPremover=0)THEN
+	_pNextRoadPremover :=ADR(_stAxisNo);
+ELSE
+	_pNextRoadPremover :=stAxis.stAxisStatus.pNextRoadPremover;
+END_IF
+
+// 是否成组判断，并根据条件计算组内gap距离  03.31
+IF (_pPremover^.stNcTOPLC.nAxisId<>0) THEN 
+	IF (_pPremover^.stAxisStatus.stGroupRef.eGroupType<>E_GroupType.GROUPTYPE_NONE)
+           AND (stAxis.stAxisStatus.stGroupRef.eGroupType<>E_GroupType.GROUPTYPE_NONE)THEN 
+		IF (_pPremover^.stAxisStatus.stGroupRef.nGroupId=stAxis.stAxisStatus.stGroupRef.nGroupId)THEN 
+			//_fGroupInGap:=stAxis.stAxisStatus.stPathRef.fGroupInGap;
+			_fGroupInGap:=stAxis.stPLCTONC.fGroupInGap;
+			_bIsGroupMember:=TRUE;
+		END_IF
+	ELSE
+		_bIsGroupMember:=FALSE;
+	END_IF
+ELSE
+	IF (_pNextRoadPremover^.stNcTOPLC.nAxisId<>0) THEN 
+		IF (_pNextRoadPremover^.stAxisStatus.stGroupRef.eGroupType<>E_GroupType.GROUPTYPE_NONE)
+			   AND (stAxis.stAxisStatus.stGroupRef.eGroupType<>E_GroupType.GROUPTYPE_NONE)THEN 
+			IF (_pNextRoadPremover^.stAxisStatus.stGroupRef.nGroupId=stAxis.stAxisStatus.stGroupRef.nGroupId)THEN 
+				//_fGroupInGap:=stAxis.stAxisStatus.stPathRef.fGroupInGap;
+				_fGroupInGap:=stAxis.stPLCTONC.fGroupInGap;
+				_bIsGroupMember:=TRUE;
+			END_IF
+		ELSE
+			_bIsGroupMember:=FALSE;
+		END_IF
+	ELSE 
+	   _bIsGroupMember:=FALSE;
+	END_IF
+END_IF
+
+
+
+// 前后动子实时位置计算
+IF stAxis.stPLCTONC.bNcEnable THEN 
+	//IF (_pPremover^.stNcTOPLC.nAxisId<>0)THEN   //04.11
+	IF (_pPremover^.stNcTOPLC.nAxisId<>0)AND (stAxis.stNcTOPLC.nCuRoadID=_pPremover^.stNcTOPLC.nCuRoadID)THEN   //04.11
+		IF (stAxis.stNcTOPLC.nCuRoadID<>stAxis.stPLCTONC.nRoadID_2)THEN   //04.02
+		    IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+				 IF (_pPremover^.stNcTOPLC.fActPos<stAxis.stNcTOPLC.fActPos)AND(stAxis.stPLCTONC.nSysType=3)THEN
+					 _fRealDis:=_pPremover^.stNcTOPLC.fActPos+stAxis.stNcTOPLC.fModuloFactor-stAxis.stNcTOPLC.fActPos;
+				 ELSE
+					 _fRealDis:=_pPremover^.stNcTOPLC.fActPos-stAxis.stNcTOPLC.fActPos;
+					 //_fPyRealdis:=_pPremover^.stCodToNCParam.fActualPos-stAxis.stCodToNCParam.fActualPos;  
+				 END_IF
+			ELSE
+				IF (_pPremover^.stNcTOPLC.fActPos>stAxis.stNcTOPLC.fActPos)AND(stAxis.stPLCTONC.nSysType=3)THEN  
+					 _fRealDis:=stAxis.stNcTOPLC.fActPos+stAxis.stNcTOPLC.fModuloFactor-_pPremover^.stNcTOPLC.fActPos; 
+				ELSE
+					_fRealDis:=stAxis.stNcTOPLC.fActPos-_pPremover^.stNcTOPLC.fActPos;
+					//_fPyRealdis:=stAxis.stCodToNCParam.fActualPos-_pPremover^.stCodToNCParam.fActualPos;    //02.28
+				END_IF
+			END_IF
+			
+		ELSE
+			IF NOT stAxis.stPLCTONC.bRoadDirection  THEN
+				 _fRealDis:=_pPremover^.stNcTOPLC.fActPos-stAxis.stNcTOPLC.fActPos;
+				 //_fPyRealdis:=_pPremover^.stCodToNCParam.fActualPos-stAxis.stCodToNCParam.fActualPos;    //02.28
+			ELSE
+				_fRealDis:=stAxis.stNcTOPLC.fActPos-_pPremover^.stNcTOPLC.fActPos;
+				//_fPyRealdis:=stAxis.stCodToNCParam.fActualPos-_pPremover^.stCodToNCParam.fActualPos;    //02.28
+			END_IF
+		END_IF
+		
+		_fGapSet:=_pPremover^.stAxisStatus.stPathRef.fGap+stAxis.stAxisStatus.stPathRef.fSetGap;
+		
+		IF _bIsGroupMember THEN   //03.31
+			_fGapSet:=_fGroupInGap;
+		END_IF
+	ELSE    //02.20 增加下一路段实时距离计算
+		//IF ( _pNextRoadPremover^.stNcTOPLC.nAxisId<>0)THEN   04/11
+		IF ( _pNextRoadPremover^.stNcTOPLC.nAxisId<>0)AND (stAxis.stNcTOPLC.nCuRoadID<>stAxis.stPLCTONC.nRoadID_2)AND(stAxis.stPLCTONC.nRoadID_2<>0) THEN  // 04/11
+			IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+				  IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向
+				      _fRealDis:=FC_TransformPosition(fOffset:=stAxis.stPLCTONC.fRoad1_Length, fPosition:=_pNextRoadPremover^.stNcTOPLC.fActPos)-stAxis.stNcTOPLC.fActPos;
+					 _fPyRealdis:=FC_TransformPosition(fOffset:=stAxis.stPLCTONC.fRoad1_Length, fPosition:=_pNextRoadPremover^.stCodToNCParam.fActualPos)-stAxis.stCodToNCParam.fActualPos;  //02.28
+				  ELSE
+				      _fRealDis:=FC_TransformPosition(fOffset:=stAxis.stPLCTONC.fRoad1_Length, fPosition:=stAxis.stPLCTONC.fRoad2_Length-_pNextRoadPremover^.stNcTOPLC.fActPos)-stAxis.stNcTOPLC.fActPos;
+					  _fPyRealdis:=FC_TransformPosition(fOffset:=stAxis.stPLCTONC.fRoad1_Length, fPosition:=stAxis.stPLCTONC.fRoad2_Length-_pNextRoadPremover^.stCodToNCParam.fActualPos)-stAxis.stCodToNCParam.fActualPos;//02.28
+				  END_IF
+			ELSE
+				IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向
+				      _fRealDis:=_pNextRoadPremover^.stNcTOPLC.fActPos+stAxis.stNcTOPLC.fActPos;  //04.17
+					  _fPyRealdis:=_pNextRoadPremover^.stCodToNCParam.fActualPos+stAxis.stCodToNCParam.fActualPos;  //02.28
+				  ELSE
+				      _fRealDis:=stAxis.stNcTOPLC.fActPos+stAxis.stPLCTONC.fRoad2_Length-_pNextRoadPremover^.stNcTOPLC.fActPos;  //04.17
+					  _fPyRealdis:=stAxis.stCodToNCParam.fActualPos+stAxis.stPLCTONC.fRoad2_Length-_pNextRoadPremover^.stCodToNCParam.fActualPos;  //02.28
+				  END_IF
+				  
+			END_IF
+			_fGapSet:=_pNextRoadPremover^.stAxisStatus.stPathRef.fGap+stAxis.stAxisStatus.stPathRef.fSetGap;
+			IF _bIsGroupMember THEN   //03.31
+				_fGapSet:=_fGroupInGap;
+			END_IF
+		ELSE
+			_fRealDis:=0;
+		END_IF 
+	END_IF
+	// 实时位置计算  07.16
+	IF (_pPremover^.stNcTOPLC.nAxisId<>0) THEN
+       IF (stAxis.stCodToNCParam.nRoadID=_pPremover^.stCodToNCParam.nRoadID)THEN   //07.16
+			_fPyRealdis:=ABS(stAxis.stCodToNCParam.fActualPos-_pPremover^.stCodToNCParam.fActualPos);
+		ELSE
+			IF (stAxis.stCodToNCParam.nRoadID=stAxis.stPLCTONC.nRoadID_1)THEN
+				IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+					IF NOT stAxis.stPLCTONC.bRoadDirection  THEN
+						_fPyRealdis:=stAxis.stPLCTONC.fRoad1_Length-stAxis.stCodToNCParam.fActualPos+_pPremover^.stCodToNCParam.fActualPos;
+					ELSE
+						_fPyRealdis:=stAxis.stPLCTONC.fRoad1_Length-stAxis.stCodToNCParam.fActualPos+stAxis.stPLCTONC.fRoad2_Length-_pPremover^.stCodToNCParam.fActualPos;
+					END_IF
+				ELSE
+					IF NOT stAxis.stPLCTONC.bRoadDirection  THEN
+						_fPyRealdis:=stAxis.stCodToNCParam.fActualPos+_pPremover^.stCodToNCParam.fActualPos;
+					ELSE
+						_fPyRealdis:=stAxis.stCodToNCParam.fActualPos+stAxis.stPLCTONC.fRoad2_Length-_pPremover^.stCodToNCParam.fActualPos;
+					END_IF
+				END_IF
+     
+        END_IF 
+			
+		END_IF  
+	END_IF
+	stAxis.stAxisStatus.nNcCycleCounter_WP:=stAxis.stAxisStatus.nNcCycleCounter_WP+1;
+ELSE
+	stAxis.stAxisStatus.nNcCycleCounter_WP:=0;
+END_IF 
+
+//  dealtGap预值设置  //06.30
+(*IF stAxis.stPLCTONC.fDealtGap<>0THEN
+   _fSetDealtGap:=stAxis.stPLCTONC.fDealtGap;
+ELSE
+	_fSetDealtGap:=cDealtGap ;
+END_IF*)
+_fSetDealtGap:=cDealtGap ;
+
+CASE  _nState  OF 
+	cStateIdle:
+	
+	      IF stAxis.stPLCTONC.bNcEnable THEN 
+              _nState:=cStateReady;
+          END_IF       
+
+    cStateReady:     
+	      A_NCStartCase();
+		  IF _bEnable THEN 
+			  _nState:=cStatePathGenerator;
+			  A_Planning();
+			  _bEnable:=FALSE;
+			  _stPathRef.bCalculateDone:=FALSE;
+		  END_IF
+    cStatePathGenerator:
+	     
+	      _nState:=cStateReady;
+
+END_CASE
+ 
+
+IF stAxis.stPLCTONC.bNcEnable AND _bCalculateDone THEN 
+	
+    A_GetPosition();
+ELSE
+	_bEndOfProfile:=FALSE;
+	stAxis.stNcTOPLC.fActVelo:=0;
+	stAxis.stAxisStatus.nNcCycleCounter:=0;   //06.20
+END_IF
+
+IF stAxis.stAxisStatus.nNcCycleCounter=0 THEN   //10.28
+	stAxis.stAxisStatus.bSynStopping:=FALSE;
+	//stAxis.stAxisStatus.bEmStopping:=FALSE;     //03.03   通信时序问题？？？
+	_bEstopping:=FALSE;
+END_IF
+
+// 位置滤波
+A_PositionHandle();
+
+//动子前置和后置更新
+A_NodeUpdate();  //04.20
+]]></ST>
+    </Implementation>
+    <Action Name="A_AccSegmengt" Id="{e556f2a2-9616-4837-b2e4-16990e7300f2}">
+      <Implementation>
+        <ST><![CDATA[
+_fPreTaVel:=_pPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+_fPreCuVel:=_pPremover^.stNcTOPLC.fActVelo;
+_fPreAcc:=_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fAccleration;   //有问题
+
+_fCuVel:=stAxis.stNcTOPLC.fActVelo;
+
+// 匀速段
+(*IF (_fCuVel>=stAxis.stAxisStatus.stPathRef.fTargetVelocity)THEN   //速度>=目标速度
+	_fDealt_S1:=0.5*(_fPreTaVel-_fPreCuVel)*(_fPreTaVel-_fPreCuVel)/_fAcc;				     			   
+	_fNewAcc:=(_fCuVel-_fPreTaVel)*(_fCuVel-_fPreTaVel)*0.5/(_fDealt_S+_fDealt_S1);
+					 
+	_fDecTime:=	(_fCuVel-_fPreTaVel)/_fNewAcc;
+	_fNewAccDis:=(_fCuVel*_fCuVel-_fPreTaVel*_fPreTaVel)*0.5/_fNewAcc;   //减速面积
+	_fMinDis:=_fPreTaVel*_fPreTaVel*0.5/_fAcc+_fNewAccDis;  //减速面积+停止最小面积
+	_fPos:=stAxis.stPLCTONC.stEndPosition.fPosition;
+	IF(_fReminDis< _fMinDis)THEN
+			_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+			_fVeloEnd:=0.0;
+			_fTargetVelo:=_pPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+			_fAcc:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+			_fDec:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+			IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+				_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+			ELSE
+				_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+			END_IF
+			_fAcc:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+			_fDec:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+			_nPathSegment:=1;
+	ELSE
+			_nPathSegment:=2;
+			_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+			_fVeloEnd:=_fPreTaVel;
+			_fTargetVelo:=_fPreTaVel;
+			_fDistance:=_fNewAccDis;
+			_fAcc:=_fNewAcc;
+			_fDec:=_fNewAcc;
+			
+			_fVeloStart_2:=_fPreTaVel;
+			_fVeloEnd_2:=0.0;
+			_fTargetVelo_2:=_fPreTaVel;
+			IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+				_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+			ELSE
+				_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+			END_IF
+			_fAcc_2:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+			_fDec_2:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+			
+	END_IF
+	
+	_bSynMode:=TRUE;
+	_bEnable:=TRUE;
+ELSIF (_fCuVel>=_fPreTaVel) THEN   //速度>前动子目标速度
+	//_fAccMisDis:=0.5*(stAxis.stAxisStatus.stPathRef.fTargetVelocity-_fPreTaVel)*(stAxis.stAxisStatus.stPathRef.fTargetVelocity-_fPreTaVel)/_fAcc;
+	_fAccMisDis:=(stAxis.stAxisStatus.stPathRef.fTargetVelocity-_fPreTaVel)*(stAxis.stAxisStatus.stPathRef.fTargetVelocity-_fPreTaVel)/_fAcc;
+	_fDealt_S1:=0.5*(_fPreTaVel-_fPreCuVel)*(_fPreTaVel-_fPreCuVel)/_fAcc;
+    IF(_fAccMisDis>=(_fDealt_S+_fDealt_S1)) THEN
+		_fNewVelo:=_fPreTaVel+SQRT((_fDealt_S+_fDealt_S1)*_fAcc);
+		_fNewAccDis:=(_fNewVelo*_fNewVelo-_fPreTaVel*_fPreTaVel)/_fAcc;  //减速追击面积
+		//_fMinDis:=_fPreTaVel*_fPreTaVel*0.5/_fAcc+_fAccMisDis+_fNewAccDis;
+		
+		_fMinDis:=_fPreTaVel*_fPreTaVel*0.5/_fAcc+_fNewAccDis;
+		IF(_fReminDis>=_fMinDis)THEN
+			_nPathSegment:=2;
+			_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+			_fVeloEnd:=_fPreTaVel;
+			_fTargetVelo:=_fNewVelo;
+			_fDistance:=_fNewAccDis;
+			_fAcc:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+			_fDec:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+			
+			_fVeloStart_2:=_fPreTaVel;
+			_fVeloEnd_2:=0.0;
+			_fTargetVelo_2:=_fPreTaVel;
+			IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+				_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+			ELSE
+				_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+			END_IF
+			_fAcc_2:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+			_fDec_2:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+			
+	    END_IF
+	
+	END_IF
+
+ELSE     //  其他情况不处理
+    RETURN;
+END_IF*)
+IF (_fCuVel>_fPreTaVel)THEN   //速度>前动子目标速度
+	    _fDealt_S1:=0.5*(_fPreTaVel-_fPreCuVel)*(_fPreTaVel-_fPreCuVel)/_fAcc;	
+		
+        IF (_fDealt_S>_fDealt_S1)THEN	   
+	         _fNewAcc:=(_fCuVel-_fPreTaVel)*(_fCuVel-_fPreTaVel)*0.5/(_fDealt_S-_fDealt_S1);
+			 IF (_fNewAcc>stAxis.stAxisParam.stDynamicDefault.fMaxDeceleration)THEN 
+			    _fNewAcc:=stAxis.stAxisParam.stDynamicDefault.fMaxDeceleration;
+		     END_IF
+		ELSE
+			_fNewAcc:=stAxis.stAxisParam.stDynamicDefault.fMaxDeceleration;
+		END_IF
+		
+	    _fDecTime:=	(_fCuVel-_fPreTaVel)/_fNewAcc;
+	    _fNewAccDis:=(_fCuVel*_fCuVel-_fPreTaVel*_fPreTaVel)*0.5/_fNewAcc;   //减速面积
+	    _fMinDis:=_fPreTaVel*_fPreTaVel*0.5/_fAcc+_fNewAccDis;  //减速面积+停止最小面积
+	    _fPos:=stAxis.stPLCTONC.stEndPosition.fPosition;
+	    IF(_fReminDis< _fMinDis)THEN
+			_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+			_fVeloEnd:=0.0;
+			_fTargetVelo:=_pPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+			_fAcc:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+			_fDec:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+			IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+				_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+			ELSE
+				_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+			END_IF
+			
+			_nPathSegment:=1;
+	    ELSE
+			_nPathSegment:=2;
+			_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+			_fVeloEnd:=_fPreTaVel;
+			_fTargetVelo:=_fPreTaVel;
+			_fDistance:=_fNewAccDis;
+			_fAcc:=_fNewAcc;
+			_fDec:=_fNewAcc;
+			_fPosIn:=_fDealt_S;       
+			_fVeloStart_2:=_fPreTaVel;
+			_fVeloEnd_2:=0.0;
+			_fTargetVelo_2:=_fPreTaVel;
+			IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+				_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+			ELSE
+				_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+			END_IF
+			_fAcc_2:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+			_fDec_2:=stAxis.stPLCTONC.stEndPosition.fDeceleration;	
+	   END_IF
+	
+ELSE     //按当前速度重新规划
+	        (*_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+			_fVeloEnd:=0.0;
+			_fTargetVelo:=stAxis.stNcTOPLC.fActVelo;
+			_fAcc:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+			_fDec:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+			IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+				_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+			ELSE
+				_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+			END_IF
+			
+			_nPathSegment:=1;*)
+		RETURN;
+END_IF
+_bSynMode:=TRUE;
+_bEnable:=TRUE;
+stAxis.stAxisStatus.bSynDecActive:=TRUE;
+IF GVL_MC.cDebug  THEN
+	_sMessage:=FC_StrContact(stAxis,'acc gap control');
+	ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+END_IF
+                       ]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_CatchUp" Id="{25663087-d2e2-40ff-be97-ed1cbef540da}">
+      <Implementation>
+        <ST><![CDATA[
+//  追击
+(***********
+   1. 前后动子间距小于防碰撞距离return 
+   2. 前后动子间距小于欲减速设置距离，触发减速
+   3. 判断当前动子有几段路径，分路径讨论前动子处于路径第几段和处于第几段的加速段、减速段和匀速段
+
+************)
+
+IF (_pPremover^.stNcTOPLC.nAxisId<>0)AND (NOT _bSynMode) THEN 
+	//预处理减速距离,前瞻距离
+	_fDisSet:=0.5*stAxis.stAxisStatus.stPathRef.fTargetVelocity*stAxis.stAxisStatus.stPathRef.fTargetVelocity/_fAcc;        
+	
+	IF (_nPathSegment=1)THEN 
+		IF(_fTime<stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fTa)THEN     // 当前动子处于第一减速段
+			IF (stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fExpVelo<stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fStartVelo)
+				AND (stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fTv<>0)  THEN
+				 _fDisSet:=0.5*stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fStartVelo*stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fStartVelo/_fAcc;
+			END_IF
+			
+		END_IF
+	ELSIF(_nPathSegment=2)THEN 
+		IF(_fTime<stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fTa)THEN
+		    _fDisSet:=0.5*stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fStartVelo*stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fStartVelo/_fAcc;
+		ELSE
+			_fDisSet:=0.5*stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fExpVelo*stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fExpVelo/_fAcc;
+		END_IF
+	ELSE
+		;
+	END_IF
+	_fDealt_S:=_fRealDis-_fGapSet;    //两动子间实时位置偏差，包含gap
+
+	//IF ((_fRealDis -_fGapSet)<=cDealtGap)AND(_pPremover^.stAxisStatus.stPathRef.fTargetVelocity <stAxis.stAxisStatus.stPathRef.fTargetVelocity) THEN    //10.18 
+	IF ((_fRealDis -_fGapSet)<=_fSetDealtGap)AND(_pPremover^.stAxisStatus.stPathRef.fTargetVelocity <stAxis.stAxisStatus.stPathRef.fTargetVelocity) THEN    //10.18 
+		_fPos:=stAxis.stPLCTONC.stEndPosition.fPosition;
+		_fTargetVelo:=_pPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+		_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+		_fVeloEnd:=0;
+		_fAcc:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+		_fDec:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+		IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+		     _fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+	    ELSE
+			 _fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+	    END_IF
+		_bEnable:=TRUE;
+		_nPathSegment:=1;
+		stAxis.stAxisStatus.bSynDecActive:=TRUE;
+		RETURN;
+	 END_IF   //11.22 增加
+	
+    _fReminDis:=ABS(stAxis.stPLCTONC.stEndPosition.fPosition-stAxis.stNcTOPLC.fActPos);   //剩余目标距离
+	
+	IF (_fDealt_S-_fDisSet<=0)THEN    //触发减速判断
+		   //IF (_pPremover^.stAxisStatus.stPathRef.fTargetVelocity <stAxis.stAxisStatus.stPathRef.fTargetVelocity) THEN  //11.25注释
+		   IF (stAxis.stNcTOPLC.fActVelo>_pPremover^.stNcTOPLC.fActVelo) THEN     //11.25修改
+			   IF (_fReminDis>_fDisSet)THEN  //判断剩余距离是否满足撞击条件,小于不处理 ，考虑减速距离过长特殊场景
+				    _fPreCurTime:=UDINT_TO_LREAL(_pPremover^.stAxisStatus.nNcCycleCounter)*fCycleTime;
+			       IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN      //判断前动子只有一段路径
+				  
+					   IF (_fPreCurTime <_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fTa)THEN      //加速段或减速第一段
+						   IF (_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fExpVelo>_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fStartVelo)THEN
+							   IF (stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fTv<>0) THEN          //加速段
+								   A_AccSegmengt();
+							   END_IF 
+						   ELSE    //减速段
+							   IF(_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fTv<>0)THEN 
+								   A_DecSegment();
+							   END_IF
+						   END_IF
+					   // 匀速段
+					   ELSIF (_fPreCurTime <(_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fTotalTime-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fTd))THEN
+						   A_ConVeloSegment();
+					   ELSE
+						   //
+						   RETURN ;  //不处理
+					   END_IF
+				   //第二段
+				   ELSIF(_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=2)THEN
+                       IF (_pPremover^.stAxisStatus.nSegIndex=0) THEN   //前动子在第一段
+						    //IF (_fPreCurTime <_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fTa)THEN      //加速段
+							IF (_fPreCurTime <_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fTotalTime)THEN      //减速段  11.29
+								A_DecSegment_2();
+							END_IF
+					   ELSIF (_pPremover^.stAxisStatus.nSegIndex=1) THEN   //只处理匀速段
+						   IF (_fPreCurTime <(_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fTotalTime-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fTd))THEN
+						       A_ConVeloSegment();
+						   END_IF   
+					   ELSE
+						   ;
+					   END_IF
+					   // 第二段减速段不处理
+				   
+				   END_IF
+			   ELSE    //判断剩余距离是否满足撞击条件,小于不处理 ，考虑减速距离过长特殊场景,
+				   
+				   RETURN ;
+		       END_IF
+		   END_IF
+	END_IF
+END_IF ]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_ContantVeloPosition" Id="{2a893d99-46b8-4469-b9c6-45731380e179}">
+      <Implementation>
+        <ST><![CDATA[stAxis.stAxisStatus.nNcCycleCounter:=stAxis.stAxisStatus.nNcCycleCounter+1;
+IF stAxis.stAxisStatus.bPositiveDirection THEN
+	stAxis.stNcTOPLC.fActPos:=stAxis.stNcTOPLC.fActVelo*fCycleTime+stAxis.stNcTOPLC.fActPos;
+ELSE
+	stAxis.stNcTOPLC.fActPos:=stAxis.stNcTOPLC.fActPos-stAxis.stNcTOPLC.fActVelo*fCycleTime;
+END_IF
+stAxis.stNcTOPLC.fSetVelo:=stAxis.stNcTOPLC.fActVelo;
+stAxis.stNcTOPLC.fSetAcc:=0;
+stAxis.stNcTOPLC.fSetJerk:=0;]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_ConVeloSegment" Id="{ce640661-fe09-4246-81be-052f685d7fac}">
+      <Implementation>
+        <ST><![CDATA[
+_fPreTaVel:=_pPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+_fPreCuVel:=_pPremover^.stNcTOPLC.fActVelo;
+_fPreAcc:=_fAcc;
+_fCuVel:=stAxis.stNcTOPLC.fActVelo;
+//_fDealt_S1:=0.5*(_fPreTaVel-_fPreCuVel)*(_fPreTaVel-_fPreCuVel)/_fAcc;
+				      
+_fNewAcc:=(_fCuVel-_fPreTaVel)*(_fCuVel-_fPreTaVel)*0.5/_fDealt_S;
+		   		 
+_fDecTime:=	(_fCuVel-_fPreTaVel)/_fNewAcc;
+_fNewAccDis:=(_fCuVel*_fCuVel-_fPreTaVel*_fPreTaVel)*0.5/_fNewAcc;
+_fMinDis:=_fPreTaVel*_fPreTaVel*0.5/_fPreAcc+_fNewAccDis;
+
+_fPos:=stAxis.stPLCTONC.stEndPosition.fPosition;
+	
+IF(_fReminDis< _fMinDis)THEN
+		_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+	    _fVeloEnd:=0.0;
+	    _fTargetVelo:=_pPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+		IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+			_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+		ELSE
+			_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+		END_IF
+		_fAcc:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+	    _fDec:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+		_nPathSegment:=1;
+ELSE
+		_nPathSegment:=2;
+		_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+	    _fVeloEnd:=_fPreTaVel;
+	    _fTargetVelo:=_fPreTaVel;
+		_fDistance:=_fNewAccDis;
+		_fAcc:=_fNewAcc;
+	    _fDec:=_fNewAcc;
+		_fPosIn:=_fDealt_S;       //11.29
+	    _fVeloStart_2:=_fPreTaVel;
+	    _fVeloEnd_2:=0.0;
+	    _fTargetVelo_2:=_fPreTaVel;
+		IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+			_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+		ELSE
+			_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+		END_IF
+		_fAcc_2:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+	    _fDec_2:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+END_IF
+
+_bSynMode:=TRUE;
+_bEnable:=TRUE;
+stAxis.stAxisStatus.bSynDecActive:=TRUE;
+                
+IF GVL_MC.cDebug  THEN
+    _sMessage:=FC_StrContact(stAxis,'con gap control');
+	 ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+END_IF ]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_DecSegment" Id="{eedab50c-0b0b-432a-8e0d-3f50365d1dd5}">
+      <Implementation>
+        <ST><![CDATA[
+_fPreTaVel:=_pPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+_fPreCuVel:=_pPremover^.stNcTOPLC.fActVelo;
+_fPreAcc:=_fAcc;
+_fCuVel:=stAxis.stNcTOPLC.fActVelo;
+
+// 计算前动子的减速距离
+_fPre_S:=(_fPreCuVel-_fPreTaVel)*(_fPreCuVel-_fPreTaVel)*0.5/_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fDeceleration;
+		      	   
+//_fNewAcc:=(_fCuVel-_fPreTaVel)*(_fCuVel-_fPreTaVel)*0.5/_fDealt_S;  //06.18 
+_fNewAcc:=(_fCuVel-_fPreTaVel)*(_fCuVel-_fPreTaVel)*0.5/(_fDealt_S+_fPre_S);  //06.18
+
+//_fNewAcc:=(_fCuVel-_fPreTaVel)*(_fCuVel-_fPreTaVel)*0.5/_fDealt_S;
+_fDecTime:=	(_fCuVel-_fPreTaVel)/_fNewAcc;
+_fNewAccDis:=(_fCuVel*_fCuVel-_fPreTaVel*_fPreTaVel)*0.5/_fNewAcc;
+_fMinDis:=_fPreTaVel*_fPreTaVel*0.5/_fPreAcc+_fNewAccDis;
+
+_fPos:=stAxis.stPLCTONC.stEndPosition.fPosition;
+
+IF(_fReminDis< _fMinDis)THEN
+		_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+	    _fVeloEnd:=0.0;
+	    _fTargetVelo:=_pPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+		IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+			_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+		ELSE
+			_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+		END_IF
+		_fAcc:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+	    _fDec:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+		_nPathSegment:=1;
+ELSE
+		_nPathSegment:=2;
+		_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+	    _fVeloEnd:=_fPreTaVel;
+	    _fTargetVelo:=_fPreTaVel;
+		_fDistance:=_fNewAccDis;
+		_fAcc:=_fNewAcc;
+	    _fDec:=_fNewAcc;
+		
+	    _fVeloStart_2:=_fPreTaVel;
+	    _fVeloEnd_2:=0.0;
+	    _fTargetVelo_2:=_fPreTaVel;
+		_fPosIn:=_fDealt_S;       // 25.01.17
+		IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+			_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+		ELSE
+			_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+		END_IF
+		_fAcc_2:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+	    _fDec_2:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+END_IF
+_bSynMode:=TRUE;
+_bEnable:=TRUE;
+stAxis.stAxisStatus.bSynDecActive:=TRUE;
+
+IF GVL_MC.cDebug  THEN
+		_sMessage:=FC_StrContact(stAxis,'dec gap control');
+	     ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+END_IF]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_DecSegment_2" Id="{9171abea-73fd-4d97-9707-eede68f31098}">
+      <Implementation>
+        <ST><![CDATA[
+_fPreTaVel:=_pPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+_fPreCuVel:=_pPremover^.stNcTOPLC.fActVelo;
+_fPreAcc:=_fAcc;
+_fCuVel:=stAxis.stNcTOPLC.fActVelo;
+ _fPreSeg1TotalTime :=_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fTotalTime;   //05.26
+//_fPreDealt_S:=0.5*(_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fTa-_fPreCurTime)*_fPreCuVel;
+//_fPreDealt_S:=_pPremover^.stAxisStatus.stPathRef.fDealtInPos- 0.5*(_fPreTaVel+_fPreCuVel)*_fPreCurTime; //05.26  
+_fPreDealt_S:=0.5*(_fPreCuVel-_fPreTaVel)*( _fPreSeg1TotalTime-_fPreCurTime); //05.26 
+			      	   
+_fNewAcc:=(_fCuVel-_fPreTaVel)*(_fCuVel-_fPreTaVel)*0.5/(_fDealt_S+_fPreDealt_S);
+		   		 
+_fDecTime:=	(_fCuVel-_fPreTaVel)/_fNewAcc;
+_fNewAccDis:=(_fCuVel*_fCuVel-_fPreTaVel*_fPreTaVel)*0.5/_fNewAcc;
+
+_fMinDis:=_fPreTaVel*_fPreTaVel*0.5/_fPreAcc+_fNewAccDis;
+
+_fPos:=stAxis.stPLCTONC.stEndPosition.fPosition;
+
+IF( _fReminDis< _fMinDis)THEN
+		_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+	    _fVeloEnd:=0.0;
+	    _fTargetVelo:=_pPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+		IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+			_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+		ELSE
+			_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+		END_IF
+		_nPathSegment:=1;
+		_fAcc:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+	    _fDec:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+ELSE
+		_nPathSegment:=2;
+		_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+	    _fVeloEnd:=_fPreTaVel;
+	    _fTargetVelo:=_fPreTaVel;
+		_fDistance:=_fNewAccDis;
+		_fAcc:=_fNewAcc;
+	    _fDec:=_fNewAcc;
+		_fPosIn:=_fDealt_S+_fPreDealt_S;       //11.29
+	    _fVeloStart_2:=_fPreTaVel;
+	    _fVeloEnd_2:=0.0;
+	    _fTargetVelo_2:=_fPreTaVel;
+		IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+			_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+		ELSE
+			_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+		END_IF
+		_fAcc_2:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+	    _fDec_2:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+		
+END_IF
+_bSynMode:=TRUE;
+_bEnable:=TRUE;
+stAxis.stAxisStatus.bSynDecActive:=TRUE;
+
+IF GVL_MC.cDebug  THEN
+		_sMessage:=FC_StrContact(stAxis,'dec2 gap control');
+	     ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+END_IF]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_EStop" Id="{ca221e54-5765-4fec-ab70-3f1840b84ee4}">
+      <Implementation>
+        <ST><![CDATA[
+//计算最小制动距离
+_fPtyVelo:= ABS(_fLastPtyPos-stAxis.stCodToNCParam.fActualPos)/fCycleTime;  //实际速度
+_fBreakDis:=0.5*stAxis.stNcTOPLC.fActVelo/(GVL_MC.nMaxDecRatio*stAxis.stPLCTONC.stEndPosition.fDeceleration);
+//_fSetSafeDis:=UDINT_TO_LREAL(GVL_MC.nMecReserveDis+GVL_MC.nFollowError);
+_fSetSafeDis:=UDINT_TO_LREAL(GVL_MC.nMecReserveDis);
+
+// 07.14 增加前动子跟随误差计算  分两种情况判断 前动子停止 和运行两种状态
+IF (_pPremover^.stNcTOPLC.nAxisId<>0)AND(stAxis.stAxisStatus.nNcCycleCounter<>0)THEN 
+	_fPreDealtP :=ABS(_pPremover^.stNcTOPLC.fActPos-_pPremover^.stCodToNCParam.fActualPos);
+	IF _fPreDealtP>GVL_MC.nFollowError AND _pPremover^.stAxisStatus.nNcCycleCounter<>0 THEN 
+		_bPreDyEstop:=TRUE;
+	ELSE
+		_bPreDyEstop:=FALSE;
+	END_IF 
+	IF _pPremover^.stAxisStatus.nNcCycleCounter=0 THEN
+		_bPreEstop:=TRUE;
+	ELSE
+		_bPreEstop:=FALSE;
+	END_IF
+    
+ELSIF(_pNextRoadPremover^.stNcTOPLC.nAxisId<>0)AND(stAxis.stAxisStatus.nNcCycleCounter<>0) THEN
+	IF (_pNextRoadPremover^.stNcTOPLC.nCuRoadID=_pNextRoadPremover^.stCodToNCParam.nRoadID)THEN
+	    _fPreDealtP :=ABS(_pNextRoadPremover^.stNcTOPLC.fActPos-_pNextRoadPremover^.stCodToNCParam.fActualPos);
+	ELSE
+		IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+			IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向
+				_fPreDealtP:=ABS(stAxis.stPLCTONC.fRoad1_Length+_pNextRoadPremover^.stNcTOPLC.fActPos-_pNextRoadPremover^.stCodToNCParam.fActualPos);
+			ELSE
+				_fPreDealtP:=ABS(stAxis.stPLCTONC.fRoad1_Length+stAxis.stPLCTONC.fRoad2_Length-_pNextRoadPremover^.stNcTOPLC.fActPos-_pNextRoadPremover^.stCodToNCParam.fActualPos);
+			END_IF
+		ELSE
+			IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向
+				_fPreDealtP:=ABS(_pNextRoadPremover^.stNcTOPLC.fActPos+_pNextRoadPremover^.stCodToNCParam.fActualPos);
+			ELSE
+				_fPreDealtP:=ABS(stAxis.stPLCTONC.fRoad2_Length-_pNextRoadPremover^.stNcTOPLC.fActPos+_pNextRoadPremover^.stCodToNCParam.fActualPos);
+			END_IF
+		
+		END_IF
+	END_IF
+	
+	IF _fPreDealtP>GVL_MC.nFollowError AND _pNextRoadPremover^.stAxisStatus.nNcCycleCounter<>0 THEN 
+		_bPreDyEstop:=TRUE;
+	ELSE
+		_bPreDyEstop:=FALSE;
+	END_IF 
+	IF _pNextRoadPremover^.stAxisStatus.nNcCycleCounter=0 THEN
+		_bPreEstop:=TRUE;
+	ELSE
+		_bPreEstop:=FALSE;
+	END_IF
+ELSE
+	_fPreDealtP :=0;
+	_bPreDyEstop:=FALSE;
+	_bPreEstop:=FALSE;
+END_IF
+
+_fbTonCuPos(IN:=(_fPyRealdis<(_fGapSet-_fSetSafeDis)AND GVL_MC.bEmStop AND(_bPreEstop OR _bPreDyEstop)), PT:=T#10MS, Q=> , ET=> );  //06.22
+
+
+IF _fRealDis<=0 OR _fPyRealdis<0  THEN  //02.28
+	return;
+END_IF
+
+// 规划位置急停
+IF (_pPremover^.stNcTOPLC.nAxisId<>0)AND (stAxis.stAxisStatus.nNcCycleCounter<>0)AND (_pPremover^.stNcTOPLC.nCuRoadID=stAxis.stNcTOPLC.nCuRoadID)  THEN  //04.08
+	
+	_fEStopPos:= 0.5*stAxis.stNcTOPLC.fActVelo*stAxis.stNcTOPLC.fActVelo/(GVL_MC.nMaxDecRatio*stAxis.stPLCTONC.stEndPosition.fDeceleration);  //07.13
+	IF (_pPremover^.stAxisStatus.nNcCycleCounter=0) THEN
+		IF _fRealDis <(_fGapSet-cDealtGap)  AND NOT _bEstopping  THEN   //11.06
+                   IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN    			  
+	                    _fPos:=_fEStopPos+stAxis.stNcTOPLC.fActPos;
+						//IF (stAxis.stPLCTONC.eCommand<>E_Command.COMMAND_ABSOLUTEFORK) THEN
+						IF (stAxis.stPLCTONC.nRoadID_1=0)THEN 
+							IF (_fPos>stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+								RETURN;
+							END_IF
+						ELSE  //驳指令
+							IF (stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_1) THEN 
+							   stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_1;
+							   stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_1;
+							   IF (_fPos>stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+								   RETURN;
+							   END_IF
+						    ELSE
+							   stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_2;
+							   stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_2;
+							   IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								    IF (_fPos>stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+								        RETURN;
+							        END_IF
+							   ELSE
+								   IF (_fPos<stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+								        RETURN;
+							       END_IF
+							   END_IF
+						    END_IF
+							
+						END_IF
+				   ELSE
+					    _fPos:=stAxis.stNcTOPLC.fActPos-_fEStopPos;
+						
+						//IF (stAxis.stPLCTONC.eCommand<>E_Command.COMMAND_ABSOLUTEFORK) THEN
+						IF (stAxis.stPLCTONC.nRoadID_1=0)THEN 
+							IF (_fPos<stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+								RETURN;
+							END_IF
+						ELSE  //非接驳指令
+							IF (stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_1) THEN 
+							   stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_1;
+							   stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_1;
+							   IF (_fPos<stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+								   RETURN;
+							   END_IF
+						    ELSE
+							   stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_2;
+							   stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_2;
+							   IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								    IF (_fPos>stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+								        RETURN;
+							        END_IF
+							   ELSE
+								   IF (_fPos<stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+								        RETURN;
+							       END_IF
+							   END_IF
+						    END_IF
+							
+						END_IF
+				   END_IF
+				   
+				   _fTargetVelo:=stAxis.stNcTOPLC.fActVelo;
+				   _fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+				   _fVeloEnd:=0;
+				  // _fAcc:=stAxis.stAxisParam.stDynamicDefault.fMaxDeceleration;  //07.13
+				  // _fDec:=stAxis.stAxisParam.stDynamicDefault.fMaxDeceleration;  //07.13
+				   _fAcc:=GVL_MC.nMaxDecRatio*stAxis.stPLCTONC.stEndPosition.fAccleration;  //07.13
+				   _fDec:=GVL_MC.nMaxDecRatio*stAxis.stPLCTONC.stEndPosition.fDeceleration; //07.13
+				   
+				   _fDistance:=_fEStopPos;
+				   _bEnable:=TRUE;
+				   _nPathSegment:=1;
+				  // stAxis.stAxisStatus.bSynDecActive:=TRUE;
+				   stAxis.stAxisStatus.bSynStopping:=TRUE;
+		           _bEstopping:=TRUE;  
+				 IF GVL_MC.cDebug  THEN
+					_sMessage:=FC_StrContact(stAxis,'pPremover Estop path');
+					 ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+				END_IF
+		END_IF
+		
+	END_IF
+	
+ELSE
+	IF (_pNextRoadPremover^.stNcTOPLC.nAxisId<>0)AND (stAxis.stAxisStatus.nNcCycleCounter<>0) THEN 
+		_fEStopPos:= 0.5*stAxis.stNcTOPLC.fActVelo*stAxis.stNcTOPLC.fActVelo/(GVL_MC.nMaxDecRatio*stAxis.stPLCTONC.stEndPosition.fDeceleration);  //07.13
+		IF (_pNextRoadPremover^.stAxisStatus.nNcCycleCounter=0) THEN
+			IF _fRealDis <(_fGapSet-cDealtGap) AND  NOT _bEstopping THEN  //11.06
+				IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+					_fPos:=_fEStopPos+stAxis.stNcTOPLC.fActPos;
+					IF (stAxis.stNcTOPLC.fActPos+_fEStopPos)>_fRoad1_Lenth THEN
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_1;
+						stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_2;
+                         IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								 IF (_fPos>stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+								      RETURN;
+							     END_IF
+					     ELSE
+								 IF (_fPos<stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+								        RETURN;
+							     END_IF
+					     END_IF
+						
+					ELSE
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_1;
+						stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_1; 
+					END_IF
+			    ELSE
+			        _fPos:=stAxis.stNcTOPLC.fActPos-_fEStopPos;
+					IF (stAxis.stNcTOPLC.fActPos-_fStopPos)<0 THEN
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_1;
+						stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_2; 
+						IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+							IF (_fPos>stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+									  RETURN;
+							 END_IF
+						ELSE
+							IF (_fPos<stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+									  RETURN;
+							END_IF
+					    END_IF
+						
+					ELSE
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_1;
+						stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_1; 
+					END_IF
+					
+			   END_IF 
+			    _fDistance:=_fEStopPos;
+                	
+				_fAcc:=GVL_MC.nMaxDecRatio*stAxis.stPLCTONC.stEndPosition.fAccleration;  //07.13
+				_fDec:=GVL_MC.nMaxDecRatio*stAxis.stPLCTONC.stEndPosition.fDeceleration; //07.13	
+				_fTargetVelo:=stAxis.stNcTOPLC.fActVelo;
+				_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+				_fVeloEnd:=0;
+				_bEnable:=TRUE;
+				_nPathSegment:=1;
+				stAxis.stAxisStatus.bSynStopping:=TRUE;
+				_bEstopping:=TRUE;
+				IF GVL_MC.cDebug  THEN
+					_sMessage:=FC_StrContact(stAxis,'pNextRoadPremover Estop path');
+					 ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+				END_IF
+			END_IF
+	    END_IF			  	  
+    END_IF
+END_IF 
+
+// 引入实际位置急停
+IF (_pPremover^.stNcTOPLC.nAxisId<>0)AND (stAxis.stAxisStatus.nNcCycleCounter<>0)AND (_pPremover^.stNcTOPLC.nCuRoadID=stAxis.stNcTOPLC.nCuRoadID)  THEN  //04.08
+	
+	_fEStopPos:= 0.5*stAxis.stNcTOPLC.fActVelo*stAxis.stNcTOPLC.fActVelo/(GVL_MC.nMaxDecRatio*stAxis.stPLCTONC.stEndPosition.fDeceleration);  //07.13
+	   IF _fbTonCuPos.Q  AND NOT _bEstopping  THEN   //02.28 增加实际距离检测
+                   IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN    			  
+	                    _fPos:=_fEStopPos+stAxis.stNcTOPLC.fActPos;
+						//IF (stAxis.stPLCTONC.eCommand<>E_Command.COMMAND_ABSOLUTEFORK) THEN
+						IF (stAxis.stPLCTONC.nRoadID_1=0)THEN 
+							IF (_fPos>stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+								RETURN;
+							END_IF
+						ELSE  //驳指令
+							IF (stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_1) THEN 
+							   stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_1;
+							   stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_1;
+							   IF (_fPos>stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+								   RETURN;
+							   END_IF
+						    ELSE
+							   stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_2;
+							   stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_2;
+							   IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								    IF (_fPos>stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+								        RETURN;
+							        END_IF
+							   ELSE
+								   IF (_fPos<stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+								        RETURN;
+							       END_IF
+							   END_IF
+						    END_IF
+							
+						END_IF
+				   ELSE
+					    _fPos:=stAxis.stNcTOPLC.fActPos-_fEStopPos;
+						
+						//IF (stAxis.stPLCTONC.eCommand<>E_Command.COMMAND_ABSOLUTEFORK) THEN
+						IF (stAxis.stPLCTONC.nRoadID_1=0)THEN 
+							IF (_fPos<stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+								RETURN;
+							END_IF
+						ELSE  //非接驳指令
+							IF (stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_1) THEN 
+							   stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_1;
+							   stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_1;
+							   IF (_fPos<stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+								   RETURN;
+							   END_IF
+						    ELSE
+							   stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_2;
+							   stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_2;
+							   IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								    IF (_fPos>stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+								        RETURN;
+							        END_IF
+							   ELSE
+								   IF (_fPos<stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+								        RETURN;
+							       END_IF
+							   END_IF
+						    END_IF
+							
+						END_IF
+				   END_IF
+				   
+				   //_fTargetVelo:=stAxis.stNcTOPLC.fActVelo;  07.13 
+				   //_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+				   IF NOT GVL_MC.bEmStopVMode THEN   //07.13
+					   _fTargetVelo:=stAxis.stNcTOPLC.fActVelo;  
+				       _fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+				   ELSE
+					   _fTargetVelo:=_fPtyVelo;  
+				       _fVeloStart:=_fPtyVelo;
+				   END_IF
+				   _fVeloEnd:=0;
+				   //_fAcc:=stAxis.stAxisParam.stDynamicDefault.fMaxDeceleration;
+				   //_fDec:=stAxis.stAxisParam.stDynamicDefault.fMaxDeceleration;
+				   _fAcc:=GVL_MC.nMaxDecRatio*stAxis.stPLCTONC.stEndPosition.fAccleration;  //07.13
+				   _fDec:=GVL_MC.nMaxDecRatio*stAxis.stPLCTONC.stEndPosition.fDeceleration; //07.13	
+				   _fDistance:=_fEStopPos;
+				   _bEnable:=TRUE;
+				   _nPathSegment:=1;
+				   //stAxis.stAxisStatus.bSynDecActive:=TRUE;
+				   stAxis.stAxisStatus.bSynStopping:=TRUE;
+		           _bEstopping:=TRUE;  
+				 IF GVL_MC.cDebug  THEN
+					_sMessage:=FC_StrContact(stAxis,'pPremover PyEstop path ');
+					 ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+				END_IF
+		END_IF
+			
+ELSE
+	IF (_pNextRoadPremover^.stNcTOPLC.nAxisId<>0)AND (stAxis.stAxisStatus.nNcCycleCounter<>0) THEN 
+		_fEStopPos:= 0.5*stAxis.stNcTOPLC.fActVelo*stAxis.stNcTOPLC.fActVelo/(GVL_MC.nMaxDecRatio*stAxis.stPLCTONC.stEndPosition.fDeceleration);  //07.13
+			IF _fbTonCuPos.Q  AND NOT _bEstopping  THEN   //02.28 增加实际距离检测
+				IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+					_fPos:=_fEStopPos+stAxis.stNcTOPLC.fActPos;
+					IF (stAxis.stNcTOPLC.fActPos+_fEStopPos)>_fRoad1_Lenth THEN
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_1;
+						stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_2;
+                         IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								 IF (_fPos>stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+								      RETURN;
+							     END_IF
+					     ELSE
+								 IF (_fPos<stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+								        RETURN;
+							     END_IF
+					     END_IF
+						
+					ELSE
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_1;
+						stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_1; 
+					END_IF
+			    ELSE
+			        _fPos:=stAxis.stNcTOPLC.fActPos-_fEStopPos;
+					IF (stAxis.stNcTOPLC.fActPos-_fStopPos)<0 THEN
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_1;
+						stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_2; 
+						IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+							IF (_fPos>stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+									  RETURN;
+							 END_IF
+						ELSE
+							IF (_fPos<stAxis.stPLCTONC.fTargetPos)THEN     //03.20
+									  RETURN;
+							END_IF
+					    END_IF
+						
+					ELSE
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_1;
+						stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_1; 
+					END_IF
+					
+			    END_IF 
+			    _fDistance:=_fEStopPos;
+                 _fAcc:=GVL_MC.nMaxDecRatio*stAxis.stPLCTONC.stEndPosition.fAccleration;  //07.13
+				 _fDec:=GVL_MC.nMaxDecRatio*stAxis.stPLCTONC.stEndPosition.fDeceleration; //07.13	
+	
+				 IF NOT GVL_MC.bEmStopVMode THEN   //07.13
+					   _fTargetVelo:=stAxis.stNcTOPLC.fActVelo;  
+				       _fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+				   ELSE
+					   _fTargetVelo:=_fPtyVelo;  
+				       _fVeloStart:=_fPtyVelo;
+				   END_IF
+				_fVeloEnd:=0;
+				_bEnable:=TRUE;
+				_nPathSegment:=1;
+				stAxis.stAxisStatus.bSynStopping:=TRUE;
+				_bEstopping:=TRUE;
+				IF GVL_MC.cDebug  THEN
+					_sMessage:=FC_StrContact(stAxis,'pNextRoadPremover PyEstop path');
+					 ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+				END_IF
+			END_IF
+	   // END_IF			  	  
+    END_IF
+END_IF ]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_FollowMasterPlanning" Id="{7f355fd4-a936-4c25-8f25-8316de0df815}">
+      <Implementation>
+        <ST><![CDATA[_stPathRef:=stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef;
+//_fMasterGap:=stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef.fGap-stAxis.stAxisStatus.pMaster^.stAxisParam.fClampLength*0.5;
+_fMasterGap:=stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef.fGap;
+IF (stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+	IF stAxis.stAxisStatus.pMaster^.stAxisStatus.bPositiveDirection THEN 
+	   _stPathRef.aExecutablePath[0].fStartPos:=stAxis.stNcTOPLC.fActPos;
+	   IF (stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActPos<stAxis.stNcTOPLC.fActPos)THEN
+		   _stPathRef.aExecutablePath[0].fEndPos:=stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stNcTOPLC.fModuloFactor-stAxis.stAxisStatus.stPathRef.fSlaveGap;
+	   ELSE
+	       _stPathRef.aExecutablePath[0].fEndPos:=stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.fSlaveGap;
+	   END_IF
+	   
+	   _stPathRef.aSafePath[0]:=_stPathRef.aExecutablePath[0];
+	   //_stPathRef.aSafePath[0].fStartPos:=_stPathRef.aExecutablePath[0].fStartPos-stAxis.stAxisParam.fClampLength*0.5-_fMasterGap;
+	   //_stPathRef.aSafePath[0].fEndPos:=_stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisParam.fClampLength*0.5-_fMasterGap;
+	   _stPathRef.aSafePath[0].fStartPos:=_stPathRef.aExecutablePath[0].fStartPos-stAxis.stAxisParam.fClampLength*0.5;
+	   _stPathRef.aSafePath[0].fEndPos:=_stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisParam.fClampLength*0.5;
+    ELSE
+	   _stPathRef.aExecutablePath[0].fStartPos:=stAxis.stNcTOPLC.fActPos;
+	    IF (stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActPos>stAxis.stNcTOPLC.fActPos)THEN
+			_stPathRef.aExecutablePath[0].fEndPos:=stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stNcTOPLC.fModuloFactor+stAxis.stAxisStatus.stPathRef.fSlaveGap;
+		ELSE
+			_stPathRef.aExecutablePath[0].fEndPos:=stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stAxisStatus.stPathRef.fSlaveGap;
+		END_IF
+	   
+	   _stPathRef.aSafePath[0]:=_stPathRef.aExecutablePath[0];
+	   //_stPathRef.aSafePath[0].fStartPos:=_stPathRef.aExecutablePath[0].fStartPos+stAxis.stAxisParam.fClampLength*0.5+_fMasterGap;
+	   //_stPathRef.aSafePath[0].fEndPos:=_stPathRef.aExecutablePath[0].fEndPos+stAxis.stAxisParam.fClampLength*0.5+_fMasterGap;
+	   _stPathRef.aSafePath[0].fStartPos:=_stPathRef.aExecutablePath[0].fStartPos+stAxis.stAxisParam.fClampLength*0.5;
+	   _stPathRef.aSafePath[0].fEndPos:=_stPathRef.aExecutablePath[0].fEndPos+stAxis.stAxisParam.fClampLength*0.5;
+    END_IF
+	
+	
+ELSIF(stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef._nPathSegmentNum=2)THEN 
+	IF stAxis.stAxisStatus.pMaster^.stAxisStatus.bPositiveDirection THEN 
+	   _stPathRef.aExecutablePath[0].fStartPos:=stAxis.stNcTOPLC.fActPos;
+	   IF (stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActPos<stAxis.stNcTOPLC.fActPos)THEN
+		   _stPathRef.aExecutablePath[0].fEndPos:=stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stNcTOPLC.fModuloFactor-stAxis.stAxisStatus.stPathRef.fSlaveGap;
+	   ELSE
+	       _stPathRef.aExecutablePath[0].fEndPos:=stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.fSlaveGap;
+	   END_IF
+	   //_stPathRef.aExecutablePath[0].fEndPos:=stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.fSlaveGap;
+	   _stPathRef.aExecutablePath[1].fStartPos:=_stPathRef.aExecutablePath[0].fEndPos;
+	   
+	   IF (stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActPos<stAxis.stNcTOPLC.fActPos)THEN
+		   _stPathRef.aExecutablePath[1].fEndPos:=stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos+stAxis.stNcTOPLC.fModuloFactor-stAxis.stAxisStatus.stPathRef.fSlaveGap;
+	   ELSE
+	       _stPathRef.aExecutablePath[1].fEndPos:=stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisStatus.stPathRef.fSlaveGap;
+	   END_IF
+	   //_stPathRef.aExecutablePath[1].fEndPos:=stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisStatus.stPathRef.fSlaveGap;
+	   _stPathRef.aSafePath[0]:=_stPathRef.aExecutablePath[0];
+	   //_stPathRef.aSafePath[0].fStartPos:=_stPathRef.aExecutablePath[0].fStartPos-stAxis.stAxisParam.fClampLength*0.5-_fMasterGap;
+	   //_stPathRef.aSafePath[0].fEndPos:=_stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisParam.fClampLength*0.5-_fMasterGap;
+	    _stPathRef.aSafePath[0].fStartPos:=_stPathRef.aExecutablePath[0].fStartPos-stAxis.stAxisParam.fClampLength*0.5;
+	    _stPathRef.aSafePath[0].fEndPos:=_stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisParam.fClampLength*0.5;
+	   _stPathRef.aSafePath[1]:=_stPathRef.aExecutablePath[1];
+	   //_stPathRef.aSafePath[1].fStartPos:=_stPathRef.aExecutablePath[1].fStartPos-stAxis.stAxisParam.fClampLength*0.5-_fMasterGap;
+	   //_stPathRef.aSafePath[1].fEndPos:=_stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisParam.fClampLength*0.5-_fMasterGap;
+	   _stPathRef.aSafePath[1].fStartPos:=_stPathRef.aExecutablePath[1].fStartPos-stAxis.stAxisParam.fClampLength*0.5;
+	   _stPathRef.aSafePath[1].fEndPos:=_stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisParam.fClampLength*0.5;
+    ELSE
+		_stPathRef.aExecutablePath[0].fStartPos:=stAxis.stNcTOPLC.fActPos;
+		IF (stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActPos>stAxis.stNcTOPLC.fActPos)THEN
+			_stPathRef.aExecutablePath[0].fEndPos:=stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stNcTOPLC.fModuloFactor+stAxis.stAxisStatus.stPathRef.fSlaveGap;
+		ELSE
+			_stPathRef.aExecutablePath[0].fEndPos:=stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stAxisStatus.stPathRef.fSlaveGap;
+		END_IF
+	   //_stPathRef.aExecutablePath[0].fEndPos:=stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stAxisStatus.stPathRef.fSlaveGap;
+	   _stPathRef.aExecutablePath[1].fStartPos:=_stPathRef.aExecutablePath[0].fEndPos;
+	   
+	    IF (stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActPos>stAxis.stNcTOPLC.fActPos)THEN
+			_stPathRef.aExecutablePath[1].fEndPos:=stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stNcTOPLC.fModuloFactor+stAxis.stAxisStatus.stPathRef.fSlaveGap;
+		ELSE
+			_stPathRef.aExecutablePath[1].fEndPos:=stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos+stAxis.stAxisStatus.stPathRef.fSlaveGap;
+		END_IF
+	   //_stPathRef.aExecutablePath[1].fEndPos:=stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos+stAxis.stAxisStatus.stPathRef.fSlaveGap;
+	   _stPathRef.aSafePath[0]:=_stPathRef.aExecutablePath[0];
+	   //_stPathRef.aSafePath[0].fStartPos:=_stPathRef.aExecutablePath[0].fStartPos+stAxis.stAxisParam.fClampLength*0.5+_fMasterGap;
+	   //_stPathRef.aSafePath[0].fEndPos:=_stPathRef.aExecutablePath[0].fEndPos+stAxis.stAxisParam.fClampLength*0.5+_fMasterGap;
+	   _stPathRef.aSafePath[0].fStartPos:=_stPathRef.aExecutablePath[0].fStartPos+stAxis.stAxisParam.fClampLength*0.5;
+	   _stPathRef.aSafePath[0].fEndPos:=_stPathRef.aExecutablePath[0].fEndPos+stAxis.stAxisParam.fClampLength*0.5;
+	   _stPathRef.aSafePath[1]:=_stPathRef.aExecutablePath[1];
+	   //_stPathRef.aSafePath[1].fStartPos:=_stPathRef.aExecutablePath[1].fStartPos+stAxis.stAxisParam.fClampLength*0.5+_fMasterGap;
+	   //_stPathRef.aSafePath[1].fEndPos:=_stPathRef.aExecutablePath[1].fEndPos+stAxis.stAxisParam.fClampLength*0.5+_fMasterGap;
+	   _stPathRef.aSafePath[1].fStartPos:=_stPathRef.aExecutablePath[1].fStartPos+stAxis.stAxisParam.fClampLength*0.5;
+	   _stPathRef.aSafePath[1].fEndPos:=_stPathRef.aExecutablePath[1].fEndPos+stAxis.stAxisParam.fClampLength*0.5;
+	END_IF
+
+ELSE
+	;
+   
+END_IF
+
+
+stAxis.stAxisStatus.stPathRef:=_stPathRef;
+//stAxis.stAxisStatus.stPathRef.fGap:=_fMasterGap+stAxis.stAxisParam.fClampLength*0.5;
+
+stAxis.stPLCTONC.fTargetVelocity:=stAxis.stAxisStatus.pMaster^.stPLCTONC.fTargetVelocity;
+IF stAxis.stAxisStatus.pMaster^.stPLCTONC.bCmdDceUpdate THEN
+   stAxis.stAxisStatus.bSynDecActive:=TRUE;
+END_IF
+_fTime:=0;
+_nIndex:=0;
+stAxis.stAxisStatus.nNcCycleCounter:=0;
+stAxis.stAxisStatus.stPathRef.bCalculateDone:=TRUE;
+_bCalculateDone:=TRUE;
+
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_FollowMaterPosition" Id="{9e341724-0b80-4b90-8f95-edc932853870}">
+      <Implementation>
+        <ST><![CDATA[_nSysType:=stAxis.stPLCTONC.nSysType;
+stAxis.stNcTOPLC.nAxisState:=6;  //03.14
+stAxis.stAxisStatus.nNcCycleCounter:=stAxis.stAxisStatus.pMaster^.stAxisStatus.nNcCycleCounter;
+//stAxis.stNcTOPLC.fSetVelo:=floor(stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo*stAxis.stPLCTONC.fGearRatio);  //04.15注释
+stAxis.stNcTOPLC.fActVelo:=LTRUNC(stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo*stAxis.stPLCTONC.fGearRatio);
+IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN    //04.15速度方向处理
+	  stAxis.stNcTOPLC.fSetVelo:=stAxis.stNcTOPLC.fActVelo;
+ELSE
+      stAxis.stNcTOPLC.fSetVelo:=-stAxis.stNcTOPLC.fActVelo;
+END_IF
+
+(*IF stAxis.stAxisStatus.bPositiveDirection THEN
+    stAxis.stNcTOPLC.fActPos:=stAxis.stAxisStatus.pMaster^.stNcTOPLC.fDealtPos*stAxis.stPLCTONC.fGearRatio +stAxis.stNcTOPLC.fActPos;
+
+ELSE
+    stAxis.stNcTOPLC.fActPos:=-stAxis.stAxisStatus.pMaster^.stNcTOPLC.fDealtPos*stAxis.stPLCTONC.fGearRatio +stAxis.stNcTOPLC.fActPos;
+END_IF*)
+
+IF (stAxis.stAxisStatus.nNcCycleCounter=0)THEN 
+	_stAxis_Point.fPosition:=stAxis.stNcTOPLC.fActPos;
+	RETURN;
+END_IF
+IF stAxis.stAxisStatus.bPositiveDirection THEN
+    _stAxis_Point.fPosition:=stAxis.stAxisStatus.pMaster^.stNcTOPLC.fDealtPos*stAxis.stPLCTONC.fGearRatio +_stAxis_Point.fPosition;
+
+ELSE
+    _stAxis_Point.fPosition:=-stAxis.stAxisStatus.pMaster^.stNcTOPLC.fDealtPos*stAxis.stPLCTONC.fGearRatio +_stAxis_Point.fPosition;
+END_IF
+_fRoad1_Lenth:=stAxis.stAxisStatus.pMaster^.stPLCTONC.fRoad1_Length;
+_fRoad2_Lenth:=stAxis.stAxisStatus.pMaster^.stPLCTONC.fRoad2_Length;
+
+//  实时位置、速度处理
+IF (_nSysType=1)OR(_nSysType=4)	THEN    //接驳线和分叉线
+	IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+		IF (stAxis.stAxisStatus.pMaster^.stPLCTONC.nRoadID_1<>0)AND (stAxis.stAxisStatus.pMaster^.stPLCTONC.nRoadID_2<>0)THEN    //id不相同处理
+			IF (_stAxis_Point.fPosition<=_fRoad1_Lenth)THEN
+				stAxis.stNcTOPLC.fActPos:=_stAxis_Point.fPosition;
+				stAxis.stNcTOPLC.nCuRoadID:=stAxis.stAxisStatus.pMaster^.stPLCTONC.nRoadID_1;
+			ELSE
+				IF NOT stAxis.stAxisStatus.pMaster^.stPLCTONC.bRoadDirection THEN 
+				   stAxis.stNcTOPLC.fActPos:=FC_TransformPosition(fOffset:=-_fRoad1_Lenth , fPosition:=_stAxis_Point.fPosition );
+
+				ELSE
+					_fPosTemp:=FC_TransformPosition(fOffset:=-_fRoad1_Lenth , fPosition:=_stAxis_Point.fPosition );
+					stAxis.stNcTOPLC.fActPos:= _fRoad2_Lenth-_fPosTemp;
+				END_IF
+				
+				stAxis.stNcTOPLC.nCuRoadID:=stAxis.stAxisStatus.pMaster^.stPLCTONC.nRoadID_2;
+			END_IF
+		
+		END_IF
+	ELSE
+		
+		IF (stAxis.stAxisStatus.pMaster^.stPLCTONC.nRoadID_1<>0)AND (stAxis.stAxisStatus.pMaster^.stPLCTONC.nRoadID_2<>0)THEN    //id不相同处理   //id不相同处理
+			IF (_stAxis_Point.fPosition>=0)THEN
+				stAxis.stNcTOPLC.nCuRoadID:=stAxis.stAxisStatus.pMaster^.stPLCTONC.nRoadID_1;
+				stAxis.stNcTOPLC.fActPos:=_stAxis_Point.fPosition;
+				
+			ELSE
+				IF NOT stAxis.stAxisStatus.pMaster^.stPLCTONC.bRoadDirection THEN     //正向
+					stAxis.stNcTOPLC.fActPos:=ABS(_stAxis_Point.fPosition);
+				ELSE
+					_fPosTemp:=ABS(_stAxis_Point.fPosition);
+					stAxis.stNcTOPLC.fActPos:= _fRoad2_Lenth-_fPosTemp;
+				END_IF
+				
+				stAxis.stNcTOPLC.nCuRoadID:=stAxis.stAxisStatus.pMaster^.stPLCTONC.nRoadID_2;
+			END_IF
+              
+		END_IF
+	
+	END_IF
+	
+ELSE
+    stAxis.stNcTOPLC.fDealtPos:=ABS(LTRUNC(_stAxis_Point.fPosition)-stAxis.stNcTOPLC.fActPos);    //01.13
+	stAxis.stNcTOPLC.fActPos:=LTRUNC(_stAxis_Point.fPosition);
+  
+END_IF
+
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_FollowPlanning" Id="{ea6903f6-e733-451c-8ae4-06963fe4de39}">
+      <Implementation>
+        <ST><![CDATA[_fMasterEndPos:=0;
+//_fMasterStartPos:=0;
+
+_fMasterStartPos:=stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActPos;
+
+_bCalculateDone:=TRUE;]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_FollowPosition" Id="{e71e9bd6-7525-4066-98d4-1736a80b95b5}">
+      <Implementation>
+        <ST><![CDATA[stAxis.stAxisStatus.nNcCycleCounter:=stAxis.stAxisStatus.nNcCycleCounter+1;
+_fMasterEndPos:=stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActPos;
+
+_fDePos:=_fMasterEndPos-_fMasterStartPos;
+_fVeloRatio:=stAxis.stPLCTONC.fGearRatio;
+//_fVeloRatio:=stAxis.stAxisStatus.stPathRef.fVeloRatio;
+//stAxis.stNcTOPLC.fSetPos:=stAxis.stNcTOPLC.fActPos+_fVeloRatio*_fDePos;
+stAxis.stNcTOPLC.fActPos:=stAxis.stNcTOPLC.fActPos+_fVeloRatio*_fDePos;
+stAxis.stNcTOPLC.fSetVelo:=stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo*_fVeloRatio;
+//stAxis.stNcTOPLC.fSetVelo:=_fDePos/fCycleTime;
+
+IF (_fDePos=0) THEN
+	
+	stAxis.stNcTOPLC.fSetVelo:=stAxis.stNcTOPLC.fActVelo;
+END_IF
+
+//stAxis.stNcTOPLC.fActPos:=stAxis.stNcTOPLC.fSetPos;
+stAxis.stNcTOPLC.fActVelo:=stAxis.stNcTOPLC.fSetVelo;
+
+(*IF stAxis.stAxisStatus.bPositiveDirection THEN
+	stAxis.stNcTOPLC.nModuloSetTurns:=LREAL_TO_DINT(LTRUNC(stAxis.stNcTOPLC.fSetPos/stAxis.stNcTOPLC.fModuloFactor));
+ELSE
+	IF stAxis.stNcTOPLC.fSetPos<(stAxis.stNcTOPLC.nModuloSetTurns*stAxis.stNcTOPLC.fModuloFactor)THEN 
+			stAxis.stNcTOPLC.nModuloSetTurns:=stAxis.stNcTOPLC.nModuloSetTurns-1;
+	END_IF
+END_IF
+
+stAxis.stNcTOPLC.fModuloSetPos:= MODABS(stAxis.stNcTOPLC.fSetPos,stAxis.stNcTOPLC.fModuloFactor);*)
+
+_fMasterStartPos:=stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActPos;]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_GapControl" Id="{9c13e8d5-b985-434e-acac-0d3a380f5b65}">
+      <Implementation>
+        <ST><![CDATA[
+(*****
+   1. 判断前后动子距离优先触发减速
+   2. 如果前后距离与防碰撞距离小于一定阈值优先触发同步减速功能
+   3. 如果是前动子自动触发减速，会出现后动子先减速到目标速度，前动子后减速到目标速度,前后动子距离会变大一点
+****)
+_fbDecPathTrig(CLK:=_pPremover^.stPLCTONC.bCmdDceUpdate OR _pPremover^.stAxisStatus.bSynDecActive  , Q=> );// 同步时前动子减速  03.28注释
+IF (_pPremover^.stAxisStatus.nNcCycleCounter<>0)THEN 
+	 A_CatchUp();
+	//IF ((_fRealDis -_fGapSet)<=cDealtGap) THEN    //10.18 
+	  IF ((_fRealDis -_fGapSet)<=_fSetDealtGap) THEN  
+		IF _fbDecPathTrig.Q THEN 
+		   // 04.02 增加road2情况
+		   IF (stAxis.stPLCTONC.nRoadID_2<>0)AND (stAxis.stPLCTONC.nRoadID_1<>0)AND(stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_2)THEN
+			   IF (stAxis.stPLCTONC.stStartPosition.nRoadID<>stAxis.stPLCTONC.stEndPosition.nRoadID)THEN
+					IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+						IF NOT stAxis.stPLCTONC.bRoadDirection  THEN
+							 _fPos:=stAxis.stPLCTONC.stEndPosition.fPosition-stAxis.stPLCTONC.fRoad1_Length;
+						ELSE
+							_fPos:=stAxis.stPLCTONC.fRoad2_Length-(stAxis.stPLCTONC.stEndPosition.fPosition-stAxis.stPLCTONC.fRoad1_Length);
+						END_IF
+						_fDistance:=ABS(stAxis.stNcTOPLC.fActPos-_fPos);
+					ELSE
+						IF NOT stAxis.stPLCTONC.bRoadDirection  THEN
+							 _fPos:=ABS(stAxis.stPLCTONC.stEndPosition.fPosition);
+						ELSE
+							_fPos:=stAxis.stPLCTONC.fRoad2_Length-ABS(stAxis.stPLCTONC.stEndPosition.fPosition);
+						END_IF
+						_fDistance:=ABS(stAxis.stNcTOPLC.fActPos-_fPos);
+					END_IF
+			   ELSE
+					_fPos:=stAxis.stPLCTONC.stEndPosition.fPosition;
+					_fDistance:=ABS(stAxis.stNcTOPLC.fActPos-_fPos);
+			   END_IF
+		   ELSE
+			   _fPos:=stAxis.stPLCTONC.stEndPosition.fPosition;
+			   IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+				  _fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+			   ELSE
+				  _fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+			   END_IF
+		   END_IF
+		   //_fPos:=stAxis.stPLCTONC.stEndPosition.fPosition;
+		   _fTargetVelo:=_pPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+		   _fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+		   _fVeloEnd:=0;
+		   _fAcc:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+		   _fDec:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+		   
+		   _bEnable:=TRUE;
+		   _nPathSegment:=1;
+		   stAxis.stAxisStatus.bSynDecActive:=TRUE;
+		   IF GVL_MC.cDebug  THEN
+			_sMessage:=FC_StrContact(stAxis,'SynDecActive path');
+			 ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+		   END_IF
+		END_IF
+	 END_IF
+END_IF
+
+//模式控制
+
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_GetPosition" Id="{d8afa9dd-a313-4b02-a56d-126fac4c918c}">
+      <Implementation>
+        <ST><![CDATA[IF (stAxis.stPLCTONC.ePlanningMode=E_PlanningMode.PLANNINGMODE_TSHAPED)THEN 
+   A_TShapedPosition();
+   _bEndOfProfile:=FALSE;
+ELSIF (stAxis.stPLCTONC.ePlanningMode=E_PlanningMode.PLANNINGMODE_SSHAPED)THEN 
+  A_SShapedPosition();
+ELSIF (stAxis.stPLCTONC.ePlanningMode=E_PlanningMode.PLANNINGMODE_LINEAR)THEN 
+  A_LinearPosition();
+ 
+ELSIF (stAxis.stPLCTONC.ePlanningMode=E_PlanningMode.PLANNINGMODE_FOLLOWMASTER)THEN 
+	//A_TShapedPosition();
+    A_FollowMaterPosition();
+ELSIF (stAxis.stPLCTONC.ePlanningMode=E_PlanningMode.PLANNINGMODE_PLOYNOM3)THEN 
+	A_Ploynom3Position();
+ELSIF (stAxis.stPLCTONC.ePlanningMode=E_PlanningMode.PLANNINGMODE_PLOYNOM5)THEN
+    IF NOT _bEndOfProfile THEN 
+	    A_Ploynom5Position();
+    ELSE           //12.31
+        A_ContantVeloPosition();
+    END_IF 	
+ELSIF (stAxis.stPLCTONC.ePlanningMode=E_PlanningMode.PLANNINGMODE_FOLLOW)THEN 
+	A_FollowPosition();	
+ELSE 
+    A_TShapedPosition();
+    _bEndOfProfile:=FALSE;
+END_IF
+		
+
+
+
+		
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_LinearPlanning" Id="{9739d663-750e-4ea5-815a-5adebacf4a46}">
+      <Implementation>
+        <ST><![CDATA[_nIndex:=1;
+stAxis.stAxisStatus.nNcCycleCounter:=0;
+IF (stAxis.stPLCTONC.nLinearPointNum<>0)THEN 
+   _fLinearDealt:=(_fPos-stAxis.stNcTOPLC.fActPos)/stAxis.stPLCTONC.nLinearPointNum;
+END_IF 
+
+FOR  _nPointIndex:=1 TO stAxis.stPLCTONC.nLinearPointNum  DO
+	_aLinearPosition[_nPointIndex]:=stAxis.stNcTOPLC.fActPos+_fLinearDealt*_nPointIndex;
+END_FOR
+
+_bCalculateDone:=TRUE;]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_LinearPosition" Id="{2cb82625-1c0b-4aae-8fd6-db3eed760d9f}">
+      <Implementation>
+        <ST><![CDATA[
+stAxis.stNcTOPLC.fActPos:=_aLinearPosition[_nIndex];
+
+stAxis.stNcTOPLC.fSetVelo:=stAxis.stPLCTONC.stEndPosition.fVelocity;
+stAxis.stNcTOPLC.fActVelo:=stAxis.stPLCTONC.stEndPosition.fVelocity;
+_nIndex:=_nIndex+1;
+IF (_aLinearPosition[_nIndex]=0)THEN 
+	 _bCalculateDone:=FALSE;
+	 _nIndex:=0;
+END_IF
+
+IF (_nIndex>UINT_TO_INT(stAxis.stPLCTONC.nLinearPointNum))THEN 
+	_bCalculateDone:=FALSE;
+	_nIndex:=0;
+END_IF]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_NCStartCase" Id="{e4c994d2-3844-42d1-be52-39b99b3baa29}">
+      <Implementation>
+        <ST><![CDATA[//根据不同指令控制NC路径规划 
+// 命令触发
+_fbTrig(CLK:=stAxis.stPLCTONC.bNcStart , Q=> );
+IF _fbTrig.Q  THEN 
+	_nPathSegment:=1;
+	_fPos:=stAxis.stPLCTONC.stEndPosition.fPosition;
+	_fStartPos:=stAxis.stNcTOPLC.fActPos;
+	_fEndPos:=stAxis.stPLCTONC.stEndPosition.fPosition;
+	_fTargetVelo:=stAxis.stPLCTONC.fTargetVelocity;
+	
+	IF (stAxis.stAxisStatus.nNcCycleCounter=0)THEN
+		_fVeloStart:=0;  
+		//_fVeloEnd:=0;   //12.03
+		_fVeloEnd:=stAxis.stPLCTONC.stEndPosition.fVelocity;  //12.03
+	ELSE
+	    _fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+		//_fVeloEnd:=0;  //12.03
+		_fVeloEnd:=stAxis.stPLCTONC.stEndPosition.fVelocity;  //12.03
+	END_IF
+	IF stAxis.stAxisStatus.bSlave THEN
+		_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+		_fVeloEnd:=0;
+	END_IF
+	
+	IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+	     _fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+    ELSE
+        _fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+    END_IF 
+	// 04.08
+	IF (stAxis.stPLCTONC.nRoadID_1<>0) AND (stAxis.stPLCTONC.nRoadID_2<>0)THEN
+		IF (stAxis.stPLCTONC.stStartPosition.nRoadID=stAxis.stPLCTONC.nRoadID_2)THEN
+			IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+                 _fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+            ELSE
+                 _fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+            END_IF 
+		END_IF
+	END_IF
+	// 04.08
+	IF (stAxis.stPLCTONC.ePlanningMode<>E_PlanningMode.PLANNINGMODE_LINEAR)AND (stAxis.stPLCTONC.ePlanningMode<>E_PlanningMode.PLANNINGMODE_FOLLOW)THEN 
+		IF (_fDistance<=0) AND (stAxis.stPLCTONC.ePlanningMode=E_PlanningMode.PLANNINGMODE_TSHAPED)  THEN 
+			RETURN ;
+		END_IF
+	END_IF 
+	_fAcc:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+	_fDec:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+	_fJerk:=stAxis.stPLCTONC.stEndPosition.fbJerk;
+	_fGap:=stAxis.stAxisStatus.stPathRef.fGap;
+	_bEnable:=TRUE;
+	_bSynMode:=FALSE;
+	//_pPremover^.stAxisStatus.bSynDecActive:=FALSE;
+
+	IF GVL_MC.cDebug  THEN
+		_sMessage:=FC_StrContact(stAxis,'NC generate path');
+	     ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');	 
+    END_IF
+	 _nSysType:=stAxis.stPLCTONC.nSysType;    //01.13
+	 
+	 IF stAxis.stAxisStatus.bStoppingFlag THEN    //10.09 注释
+		  stAxis.stAxisStatus.bSynStopping:=TRUE;
+	 END_IF
+	
+	 
+END_IF
+IF (stAxis.stAxisStatus.pMaster<>0)THEN 
+   _fbSlaveTrig(CLK:=(stAxis.stAxisStatus.pMaster^.stPLCTONC.bNcStart OR stAxis.stAxisStatus.pMaster^.stAxisStatus.bSynDecActive)
+          AND stAxis.stAxisStatus.pMaster^.stAxisStatus.stPathRef.bCalculateDone  , Q=> );
+END_IF 
+IF (stAxis.stPLCTONC.eCommand=E_Command.COMMAND_ABSOLUTE)OR (stAxis.stPLCTONC.eCommand=E_Command.COMMAND_ABSOLUTEFORK)THEN 
+		
+   IF (_pPremover^.stAxisStatus.nNcCycleCounter<>0) AND (stAxis.stAxisStatus.nNcCycleCounter<>0)AND NOT stAxis.stAxisStatus.bSynStopping THEN 
+	
+		IF (_pPremover^.stAxisStatus.stPathRef.fTargetVelocity <>stAxis.stAxisStatus.stPathRef.fTargetVelocity) THEN
+			   A_GapControl();
+		END_IF
+   ELSE     //03.18  增加下一段road处理
+		 IF (_pNextRoadPremover^.stAxisStatus.nNcCycleCounter<>0)AND (stAxis.stAxisStatus.nNcCycleCounter<>0)AND NOT stAxis.stAxisStatus.bSynStopping    
+			AND(_pNextRoadPremover^.stAxisStatus.stPathRef.fTargetVelocity <>stAxis.stAxisStatus.stPathRef.fTargetVelocity) THEN   //10.28
+			  A_NextRoadGapControl(); 
+		  END_IF
+	   
+   END_IF
+	
+   _fbPathTrig(CLK:= _pPremover^.stAxisStatus.bSynDecActive, Q=> );  //重新触发gap调节
+   IF _fbPathTrig.Q THEN 
+	   _bSynMode:=FALSE;
+   END_IF
+	   
+ELSIF (stAxis.stPLCTONC.eCommand=E_Command.COMMAND_GEARIN)OR(stAxis.stPLCTONC.eCommand=E_Command.COMMAND_CAMIN)THEN 
+	   IF _fbSlaveTrig.Q THEN
+	//	   _bEnable:=TRUE;
+	            ;
+	   END_IF
+	   _bCalculateDone:=TRUE;
+	   
+ELSE 
+		; 
+END_IF 
+
+
+ _fbTon(IN:=stAxis.stAxisStatus.bSynDecActive , PT:=T#20MS , Q=> , ET=> );
+IF _fbTon.Q THEN
+	stAxis.stAxisStatus.bSynDecActive:=FALSE;
+ END_IF
+ 
+
+// 急停及同步停止处理
+IF NOT stAxis.stAxisStatus.bStoppingFlag THEN 	  //03.12 
+  A_StopHandle(); 
+ 
+END_IF	
+
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_NextPathUpdateNewTarPos" Id="{3e1f6c41-c875-4756-aa70-7c2dcc0b3de8}">
+      <Implementation>
+        <ST><![CDATA[_fAcc:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+_fDec:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+//根据下一段road指令分类
+
+IF (_pNextRoadPremover^.stPLCTONC.nRoadID_1<>0)THEN     //fork指令
+	IF (_pNextRoadPremover^.stPLCTONC.stStartPosition.nRoadID<>_pNextRoadPremover^.stPLCTONC.stEndPosition.nRoadID)THEN
+		IF (_pNextRoadPremover^.stPLCTONC.stStartPosition.nRoadID=stAxis.stPLCTONC.stStartPosition.nRoadID)THEN  //起点road相同
+			IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+				_fUpNewPos:=_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-_fGapSet-stAxis.stNcTOPLC.fActPos;
+			ELSE
+				_fUpNewPos:=stAxis.stNcTOPLC.fActPos-_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-_fGapSet;
+			END_IF
+			stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+			IF (stAxis.stNcTOPLC.fActPos+_fUpNewPos)>stAxis.stPLCTONC.fRoad1_Length THEN
+				 
+				 stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_2;
+			ELSE
+				 stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+			END_IF
+		ELSE
+			IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+				IF NOT stAxis.stPLCTONC.bRoadDirection  THEN  //正向
+				    _fUpNewPos:=_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stPLCTONC.fRoad1_Length-_fGapSet-stAxis.stNcTOPLC.fActPos;
+				ELSE
+					_fUpNewPos:=stAxis.stPLCTONC.fRoad2_Length-_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stPLCTONC.fRoad1_Length-_fGapSet-stAxis.stNcTOPLC.fActPos;
+				END_IF
+				IF (stAxis.stNcTOPLC.fActPos+_fUpNewPos)>stAxis.stPLCTONC.fRoad1_Length THEN
+				 
+					 stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_2;
+				ELSE
+					 stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+				END_IF
+			ELSE
+				IF NOT stAxis.stPLCTONC.bRoadDirection  THEN  //正向
+				    _fUpNewPos:=stAxis.stNcTOPLC.fActPos+_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-_fGapSet;
+				ELSE
+					_fUpNewPos:=stAxis.stNcTOPLC.fActPos+_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stPLCTONC.fRoad2_Length-_fGapSet;
+				END_IF
+				IF (stAxis.stNcTOPLC.fActPos-_fUpNewPos)<0 THEN
+			 
+					 stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_2;
+				ELSE
+					 stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+				END_IF
+			END_IF
+			
+		END_IF
+	ELSE   //fork指令 根据前动子的edpos id 和当前动子roadid分类讨论
+		
+		IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+				IF NOT stAxis.stPLCTONC.bRoadDirection  THEN  //正向
+				    _fUpNewPos:=_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stPLCTONC.fRoad1_Length-_fGapSet-stAxis.stNcTOPLC.fActPos;
+				ELSE
+					_fUpNewPos:=stAxis.stPLCTONC.fRoad2_Length-_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stPLCTONC.fRoad1_Length-_fGapSet-stAxis.stNcTOPLC.fActPos;
+				END_IF
+				stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+				IF (stAxis.stNcTOPLC.fActPos+_fUpNewPos)>stAxis.stPLCTONC.fRoad1_Length THEN
+					 
+					 stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_2;
+				ELSE
+					 stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+				END_IF
+				
+		ELSE
+				IF NOT stAxis.stPLCTONC.bRoadDirection  THEN  //正向
+				    _fUpNewPos:=stAxis.stNcTOPLC.fActPos+_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-_fGapSet;
+				ELSE
+					//_fUpNewPos:=stAxis.stNcTOPLC.fActPos+_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stPLCTONC.fRoad2_Length-_fGapSet;
+					_fUpNewPos:=stAxis.stNcTOPLC.fActPos-_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stPLCTONC.fRoad2_Length-_fGapSet;  //08.20
+				END_IF
+				stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+				IF (stAxis.stNcTOPLC.fActPos-_fUpNewPos)<0 THEN
+					 
+					 stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_2;
+				ELSE
+					 stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+				END_IF
+				
+		END_IF
+		 //stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+		// stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+	END_IF
+ELSE   //非fork指令
+	IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+		IF NOT stAxis.stPLCTONC.bRoadDirection  THEN  //正向
+		   _fUpNewPos:=_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stPLCTONC.fRoad1_Length-_fGapSet-stAxis.stNcTOPLC.fActPos;
+	    ELSE
+			_fUpNewPos:=stAxis.stPLCTONC.fRoad2_Length-_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stPLCTONC.fRoad1_Length-_fGapSet-stAxis.stNcTOPLC.fActPos;
+		END_IF
+		stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+		IF (stAxis.stNcTOPLC.fActPos+_fUpNewPos)>stAxis.stPLCTONC.fRoad1_Length THEN
+			 
+		     stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_2;
+		ELSE
+			 stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+		END_IF
+	ELSE
+		IF NOT stAxis.stPLCTONC.bRoadDirection  THEN  //正向
+			_fUpNewPos:=stAxis.stNcTOPLC.fActPos+_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-_fGapSet;
+		ELSE
+			//_fUpNewPos:=stAxis.stNcTOPLC.fActPos+_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stPLCTONC.fRoad2_Length-_fGapSet;
+			_fUpNewPos:=stAxis.stNcTOPLC.fActPos-_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stPLCTONC.fRoad2_Length-_fGapSet;  //08.20
+		END_IF
+        stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+		IF (stAxis.stNcTOPLC.fActPos-_fUpNewPos)<0 THEN
+			 
+		     stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stPLCTONC.nRoadID_2;
+		ELSE
+			 stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+		END_IF	
+	END_IF
+END_IF
+	
+_fDistance:=_fUpNewPos;
+// 11.01 停止计算距离，根据距离设置目标速度
+IF _fDec<>0 THEN  //11.01 
+   _fLastPosDeat:=0.5*stAxis.stNcTOPLC.fActVelo*stAxis.stNcTOPLC.fActVelo/_fDec;
+END_IF 
+IF LTRUNC(_fDistance)<=_fLastPosDeat THEN
+	_fTargetVelo:=stAxis.stNcTOPLC.fActVelo;
+ELSE
+	_fTargetVelo:=stAxis.stPLCTONC.fTargetVelocity;
+END_IF
+
+//_fTargetVelo:=stAxis.stNcTOPLC.fActVelo;
+_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+_fVeloEnd:=0;
+_bEnable:=TRUE;
+_nPathSegment:=1;
+stAxis.stAxisStatus.bSynStopping:=TRUE;  //10.28
+
+IF GVL_MC.cDebug  THEN
+	_sMessage:=FC_StrContact(stAxis,'SynStoping Nextpath');
+	 ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+END_IF
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_NextRoadAccSegmengt" Id="{ac652d19-6891-4997-ae37-2b73633fc4a1}">
+      <Implementation>
+        <ST><![CDATA[
+_fPreTaVel:=_pNextRoadPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+_fPreCuVel:=_pNextRoadPremover^.stNcTOPLC.fActVelo;
+_fPreAcc:=_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fAccleration;   //有问题
+
+_fCuVel:=stAxis.stNcTOPLC.fActVelo;
+
+IF (_fCuVel>_fPreTaVel)THEN   //速度>前动子目标速度
+	    _fDealt_S1:=0.5*(_fPreTaVel-_fPreCuVel)*(_fPreTaVel-_fPreCuVel)/_fAcc;	
+		
+        IF (_fDealt_S>_fDealt_S1)THEN	   
+	         _fNewAcc:=(_fCuVel-_fPreTaVel)*(_fCuVel-_fPreTaVel)*0.5/(_fDealt_S-_fDealt_S1);
+			 IF (_fNewAcc>stAxis.stAxisParam.stDynamicDefault.fMaxDeceleration)THEN 
+			    _fNewAcc:=stAxis.stAxisParam.stDynamicDefault.fMaxDeceleration;
+		     END_IF
+		ELSE
+			_fNewAcc:=stAxis.stAxisParam.stDynamicDefault.fMaxDeceleration;
+		END_IF
+		
+	    _fDecTime:=	(_fCuVel-_fPreTaVel)/_fNewAcc;
+	    _fNewAccDis:=(_fCuVel*_fCuVel-_fPreTaVel*_fPreTaVel)*0.5/_fNewAcc;   //减速面积
+	    _fMinDis:=_fPreTaVel*_fPreTaVel*0.5/_fAcc+_fNewAccDis;  //减速面积+停止最小面积
+	    _fPos:=stAxis.stPLCTONC.stEndPosition.fPosition;
+	    IF(_fReminDis< _fMinDis)THEN
+			_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+			_fVeloEnd:=0.0;
+			_fTargetVelo:=_pNextRoadPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+			_fAcc:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+			_fDec:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+			IF (stAxis.stPLCTONC.nRoadID_2<>0)AND (stAxis.stPLCTONC.nRoadID_1<>0)THEN   //判断指令
+				IF (stAxis.stPLCTONC.stStartPosition.nRoadID<>stAxis.stPLCTONC.stEndPosition.nRoadID)THEN
+				    IF(stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_2) THEN //第二路段
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							 IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								 _fDistance:=_fPos-stAxis.stPLCTONC.fRoad1_Length-stAxis.stNcTOPLC.fActPos;
+							 ELSE
+								 _fDistance:=stAxis.stNcTOPLC.fActPos-(stAxis.stPLCTONC.fRoad2_Length-_fPos+stAxis.stPLCTONC.fRoad1_Length);
+							 END_IF
+						ELSE
+							IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								 _fDistance:=ABS(_fPos)-stAxis.stNcTOPLC.fActPos;
+							 ELSE
+								 _fDistance:=stAxis.stNcTOPLC.fActPos-(stAxis.stPLCTONC.fRoad2_Length-ABS(_fPos));
+							 END_IF
+						END_IF
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+					ELSE
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+						ELSE
+							_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+						END_IF
+					END_IF
+				ELSE
+					IF(stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_2) THEN //第二路段
+						
+						IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+							_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+						ELSE
+							_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+						END_IF
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+					ELSE
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+						ELSE
+							_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+						END_IF
+					END_IF
+				END_IF
+				
+			ELSE
+				IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+					_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+				ELSE
+					_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+				END_IF
+			END_IF
+			_nPathSegment:=1;
+	    ELSE
+			_nPathSegment:=2;
+			_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+			_fVeloEnd:=_fPreTaVel;
+			_fTargetVelo:=_fPreTaVel;
+			_fDistance:=_fNewAccDis;
+			_fAcc:=_fNewAcc;
+			_fDec:=_fNewAcc;
+			_fPosIn:=_fDealt_S;       
+			_fVeloStart_2:=_fPreTaVel;
+			_fVeloEnd_2:=0.0;
+			_fTargetVelo_2:=_fPreTaVel;
+			IF (stAxis.stPLCTONC.nRoadID_2<>0)AND (stAxis.stPLCTONC.nRoadID_1<>0)THEN   //判断指令
+				IF (stAxis.stPLCTONC.stStartPosition.nRoadID<>stAxis.stPLCTONC.stEndPosition.nRoadID)THEN
+				    IF(stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_2) THEN //第二路段
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							 IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								 _fDistance_2:=_fPos-stAxis.stPLCTONC.fRoad1_Length-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+							 ELSE
+								 _fDistance_2:=stAxis.stNcTOPLC.fActPos-(stAxis.stPLCTONC.fRoad2_Length-_fPos+stAxis.stPLCTONC.fRoad1_Length)-_fNewAccDis;
+							 END_IF
+						ELSE
+							IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								 _fDistance_2:=ABS(_fPos)-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+							 ELSE
+								 _fDistance_2:=stAxis.stNcTOPLC.fActPos-(stAxis.stPLCTONC.fRoad2_Length-ABS(_fPos))-_fNewAccDis;
+							 END_IF
+						END_IF
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+					ELSE
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+						ELSE
+							_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+						END_IF
+					END_IF
+				ELSE
+					IF(stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_2) THEN //第二路段
+						
+						IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+							_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+						ELSE
+							_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+						END_IF
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+					ELSE
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+						ELSE
+							_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+						END_IF
+					END_IF
+				END_IF
+				
+			ELSE
+				IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+					_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+				ELSE
+					_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+				END_IF
+			END_IF
+			(*IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+				_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+			ELSE
+				_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+			END_IF*)
+			_fAcc_2:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+			_fDec_2:=stAxis.stPLCTONC.stEndPosition.fDeceleration;	
+	   END_IF
+	
+ELSE    
+		RETURN;
+END_IF
+_bSynMode:=TRUE;
+_bEnable:=TRUE;
+stAxis.stAxisStatus.bSynDecActive:=TRUE;
+IF GVL_MC.cDebug  THEN
+	_sMessage:=FC_StrContact(stAxis,'next road acc gap control');
+	ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+END_IF
+                       ]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_NextRoadCatchUp" Id="{7c6e550b-30c9-466c-9a74-2323dae631b4}">
+      <Implementation>
+        <ST><![CDATA[
+//  追击
+(***********
+   1. 前后动子间距小于防碰撞距离return 
+   2. 前后动子间距小于欲减速设置距离，触发减速
+   3. 判断当前动子有几段路径，分路径讨论前动子处于路径第几段和处于第几段的加速段、减速段和匀速段
+
+************)
+IF (_pNextRoadPremover^.stNcTOPLC.nAxisId<>0)AND (NOT _bSynMode) THEN 
+	//预处理减速距离 前瞻距离
+	_fDisSet:=0.5*stAxis.stAxisStatus.stPathRef.fTargetVelocity*stAxis.stAxisStatus.stPathRef.fTargetVelocity/_fAcc;        
+	
+	IF (_nPathSegment=1)THEN 
+		IF(_fTime<stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fTa)THEN     // 当前动子处于第一减速段
+			
+			IF (stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fExpVelo<stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fStartVelo)
+				AND (stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fTv<>0)  THEN
+				 _fDisSet:=0.5*stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fStartVelo*stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fStartVelo/_fAcc;
+			END_IF
+			
+		END_IF
+	ELSIF(_nPathSegment=2)THEN 
+		IF(_fTime<stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fTa)THEN
+		    _fDisSet:=0.5*stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fStartVelo*stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fStartVelo/_fAcc;
+		ELSE
+			_fDisSet:=0.5*stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fExpVelo*stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fExpVelo/_fAcc;
+		END_IF
+	
+	ELSE
+		;
+	END_IF
+	_fDealt_S:=_fRealDis-_fGapSet;    //两动子间实时位置偏差，包含gap
+	
+	IF ((_fRealDis -_fGapSet)<=_fSetDealtGap)AND(_pNextRoadPremover^.stAxisStatus.stPathRef.fTargetVelocity <stAxis.stAxisStatus.stPathRef.fTargetVelocity) THEN    //10.18 
+	
+		_fPos:=stAxis.stPLCTONC.stEndPosition.fPosition;
+		_fTargetVelo:=_pNextRoadPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+		_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+		_fVeloEnd:=0;
+		_fAcc:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+		_fDec:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+		IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+		     _fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+	    ELSE
+			 _fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+	    END_IF
+		_bEnable:=TRUE;
+		_nPathSegment:=1;
+		stAxis.stAxisStatus.bSynDecActive:=TRUE;
+		IF GVL_MC.cDebug  THEN
+		     _sMessage:=FC_StrContact(stAxis,'nextroad gap control');
+	         ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+        END_IF
+		
+		RETURN;
+	 END_IF   //11.22 增加
+	
+    _fReminDis:=ABS(stAxis.stPLCTONC.stEndPosition.fPosition-stAxis.stNcTOPLC.fActPos);   //剩余目标距离
+	
+	IF (_fDealt_S-_fDisSet<=0)THEN    //触发减速判断 
+		   //IF (_pPremover^.stAxisStatus.stPathRef.fTargetVelocity <stAxis.stAxisStatus.stPathRef.fTargetVelocity) THEN  //11.25注释
+		   IF (stAxis.stNcTOPLC.fActVelo>_pNextRoadPremover^.stNcTOPLC.fActVelo) THEN     //11.25修改
+			   IF (_fReminDis>_fDisSet)THEN  //判断剩余距离是否满足撞击条件
+				    _fPreCurTime:=UDINT_TO_LREAL(_pNextRoadPremover^.stAxisStatus.nNcCycleCounter)*fCycleTime;
+			       IF (_pNextRoadPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN      //判断前动子只有一段路径
+					   IF (_fPreCurTime <_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fTa)THEN      //加速段或减速第一段
+						   IF (_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fExpVelo>_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fStartVelo)THEN
+							   IF (stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fTv<>0) THEN          //加速段
+								   A_NextRoadAccSegmengt();
+							   END_IF 
+						   ELSE    //减速段
+							   IF(_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fTv<>0)THEN 
+								   A_NextRoadDecSegment();
+							   END_IF
+						   END_IF
+					   ELSIF (_fPreCurTime <(_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fTotalTime-_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fTd))THEN
+						   A_NextRoadConVeloSegment();
+					   ELSE
+						   //
+						   RETURN ;  //不处理
+					   END_IF
+				   //第二段
+				   ELSIF(_pNextRoadPremover^.stAxisStatus.stPathRef._nPathSegmentNum=2)THEN
+                       IF (_pNextRoadPremover^.stAxisStatus.nSegIndex=0) THEN
+						    //IF (_fPreCurTime <_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fTa)THEN      //加速段
+							IF (_fPreCurTime <_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fTotalTime)THEN      //减速段  11.29
+								A_NextRoadDecSegment_2();
+							END_IF
+					   ELSIF (_pNextRoadPremover^.stAxisStatus.nSegIndex=1) THEN   //只处理匀速段
+						   IF (_fPreCurTime <(_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fTotalTime-_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fTd))THEN
+						       A_NextRoadConVeloSegment();
+						   END_IF   
+					   ELSE
+						   ;
+					   END_IF
+					   // 第二段减速段不处理
+				   
+				   END_IF
+			   ELSE
+				   RETURN ;
+		       END_IF
+		   END_IF
+	END_IF
+END_IF ]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_NextRoadConVeloSegment" Id="{fa915933-e6c3-4aff-82b0-679c966f5029}">
+      <Implementation>
+        <ST><![CDATA[
+_fPreTaVel:=_pNextRoadPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+_fPreCuVel:=_pNextRoadPremover^.stNcTOPLC.fActVelo;
+_fPreAcc:=_fAcc;
+_fCuVel:=stAxis.stNcTOPLC.fActVelo;
+//_fDealt_S1:=0.5*(_fPreTaVel-_fPreCuVel)*(_fPreTaVel-_fPreCuVel)/_fAcc;
+				      
+_fNewAcc:=(_fCuVel-_fPreTaVel)*(_fCuVel-_fPreTaVel)*0.5/_fDealt_S;
+		   		 
+_fDecTime:=	(_fCuVel-_fPreTaVel)/_fNewAcc;
+_fNewAccDis:=(_fCuVel*_fCuVel-_fPreTaVel*_fPreTaVel)*0.5/_fNewAcc;
+_fMinDis:=_fPreTaVel*_fPreTaVel*0.5/_fPreAcc+_fNewAccDis;
+
+_fPos:=stAxis.stPLCTONC.stEndPosition.fPosition;
+	
+IF(_fReminDis< _fMinDis)THEN
+		_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+	    _fVeloEnd:=0.0;
+	    _fTargetVelo:=_pNextRoadPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+		IF (stAxis.stPLCTONC.nRoadID_2<>0)AND (stAxis.stPLCTONC.nRoadID_1<>0)THEN   //判断指令
+				IF (stAxis.stPLCTONC.stStartPosition.nRoadID<>stAxis.stPLCTONC.stEndPosition.nRoadID)THEN
+				    IF(stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_2) THEN //第二路段
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							 IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								 _fDistance:=_fPos-stAxis.stPLCTONC.fRoad1_Length-stAxis.stNcTOPLC.fActPos;
+							 ELSE
+								 _fDistance:=stAxis.stNcTOPLC.fActPos-(stAxis.stPLCTONC.fRoad2_Length-_fPos+stAxis.stPLCTONC.fRoad1_Length);
+							 END_IF
+						ELSE
+							IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								 _fDistance:=ABS(_fPos)-stAxis.stNcTOPLC.fActPos;
+							 ELSE
+								 _fDistance:=stAxis.stNcTOPLC.fActPos-(stAxis.stPLCTONC.fRoad2_Length-ABS(_fPos));
+							 END_IF
+						END_IF
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+					ELSE
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+						ELSE
+							_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+						END_IF
+					END_IF
+				ELSE
+					IF(stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_2) THEN //第二路段
+						
+						IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+							_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+						ELSE
+							_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+						END_IF
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+					ELSE
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+						ELSE
+							_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+						END_IF
+					END_IF
+				END_IF
+				
+		ELSE
+				IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+					_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+				ELSE
+					_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+				END_IF
+		END_IF
+		(*IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+			_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+		ELSE
+			_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+		END_IF*)
+		_fAcc:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+	    _fDec:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+		_nPathSegment:=1;
+ELSE
+		_nPathSegment:=2;
+		_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+	    _fVeloEnd:=_fPreTaVel;
+	    _fTargetVelo:=_fPreTaVel;
+		_fDistance:=_fNewAccDis;
+		_fAcc:=_fNewAcc;
+	    _fDec:=_fNewAcc;
+		_fPosIn:=_fDealt_S;       //11.29
+	    _fVeloStart_2:=_fPreTaVel;
+	    _fVeloEnd_2:=0.0;
+	    _fTargetVelo_2:=_fPreTaVel;
+		IF (stAxis.stPLCTONC.nRoadID_2<>0)AND (stAxis.stPLCTONC.nRoadID_1<>0)THEN   //判断指令
+				IF (stAxis.stPLCTONC.stStartPosition.nRoadID<>stAxis.stPLCTONC.stEndPosition.nRoadID)THEN
+				    IF(stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_2) THEN //第二路段
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							 IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								 _fDistance_2:=_fPos-stAxis.stPLCTONC.fRoad1_Length-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+							 ELSE
+								 _fDistance_2:=stAxis.stNcTOPLC.fActPos-(stAxis.stPLCTONC.fRoad2_Length-_fPos+stAxis.stPLCTONC.fRoad1_Length)-_fNewAccDis;
+							 END_IF
+						ELSE
+							IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								 _fDistance_2:=ABS(_fPos)-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+							 ELSE
+								 _fDistance_2:=stAxis.stNcTOPLC.fActPos-(stAxis.stPLCTONC.fRoad2_Length-ABS(_fPos))-_fNewAccDis;
+							 END_IF
+						END_IF
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+					ELSE
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+						ELSE
+							_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+						END_IF
+					END_IF
+				ELSE
+					IF(stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_2) THEN //第二路段
+						
+						IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+							_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+						ELSE
+							_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+						END_IF
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+					ELSE
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+						ELSE
+							_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+						END_IF
+					END_IF
+				END_IF
+				
+			ELSE
+				IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+					_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+				ELSE
+					_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+				END_IF
+			END_IF
+		(*IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+			_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+		ELSE
+			_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+		END_IF*)
+		_fAcc_2:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+	    _fDec_2:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+END_IF
+
+_bSynMode:=TRUE;
+_bEnable:=TRUE;
+stAxis.stAxisStatus.bSynDecActive:=TRUE;
+IF GVL_MC.cDebug  THEN
+		     _sMessage:=FC_StrContact(stAxis,'next road con gap control');
+	         ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+END_IF                       ]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_NextRoadDecSegment" Id="{94fd092d-cd5c-4a9e-8e12-fa6ffeb7db9c}">
+      <Implementation>
+        <ST><![CDATA[
+_fPreTaVel:=_pNextRoadPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+_fPreCuVel:=_pNextRoadPremover^.stNcTOPLC.fActVelo;
+_fPreAcc:=_fAcc;
+_fCuVel:=stAxis.stNcTOPLC.fActVelo;
+// 计算前动子的减速距离
+_fPre_S:=(_fPreCuVel-_fPreTaVel)*(_fPreCuVel-_fPreTaVel)*0.5/_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fDeceleration;
+		      	   
+//_fNewAcc:=(_fCuVel-_fPreTaVel)*(_fCuVel-_fPreTaVel)*0.5/_fDealt_S;  //06.18 
+_fNewAcc:=(_fCuVel-_fPreTaVel)*(_fCuVel-_fPreTaVel)*0.5/(_fDealt_S+_fPre_S);  //06.18		      	   
+//_fNewAcc:=(_fCuVel-_fPreTaVel)*(_fCuVel-_fPreTaVel)*0.5/_fDealt_S;
+_fDecTime:=	(_fCuVel-_fPreTaVel)/_fNewAcc;
+_fNewAccDis:=(_fCuVel*_fCuVel-_fPreTaVel*_fPreTaVel)*0.5/_fNewAcc;
+_fMinDis:=_fPreTaVel*_fPreTaVel*0.5/_fPreAcc+_fNewAccDis;
+
+_fPos:=stAxis.stPLCTONC.stEndPosition.fPosition;
+
+IF(_fReminDis< _fMinDis)THEN
+		_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+	    _fVeloEnd:=0.0;
+	    _fTargetVelo:=_pNextRoadPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+		IF (stAxis.stPLCTONC.nRoadID_2<>0)AND (stAxis.stPLCTONC.nRoadID_1<>0)THEN   //判断指令
+				IF (stAxis.stPLCTONC.stStartPosition.nRoadID<>stAxis.stPLCTONC.stEndPosition.nRoadID)THEN
+				    IF(stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_2) THEN //第二路段
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							 IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								 _fDistance:=_fPos-stAxis.stPLCTONC.fRoad1_Length-stAxis.stNcTOPLC.fActPos;
+							 ELSE
+								 _fDistance:=stAxis.stNcTOPLC.fActPos-(stAxis.stPLCTONC.fRoad2_Length-_fPos+stAxis.stPLCTONC.fRoad1_Length);
+							 END_IF
+						ELSE
+							IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								 _fDistance:=ABS(_fPos)-stAxis.stNcTOPLC.fActPos;
+							 ELSE
+								 _fDistance:=stAxis.stNcTOPLC.fActPos-(stAxis.stPLCTONC.fRoad2_Length-ABS(_fPos));
+							 END_IF
+						END_IF
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+					ELSE
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+						ELSE
+							_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+						END_IF
+					END_IF
+				ELSE
+					IF(stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_2) THEN //第二路段
+						
+						IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+							_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+						ELSE
+							_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+						END_IF
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+					ELSE
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+						ELSE
+							_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+						END_IF
+					END_IF
+				END_IF
+				
+		ELSE
+				IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+					_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+				ELSE
+					_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+				END_IF
+		END_IF
+		(*IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+			_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+		ELSE
+			_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+		END_IF*)
+		_fAcc:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+	    _fDec:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+		_nPathSegment:=1;
+ELSE
+		_nPathSegment:=2;
+		_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+	    _fVeloEnd:=_fPreTaVel;
+	    _fTargetVelo:=_fPreTaVel;
+		_fDistance:=_fNewAccDis;
+		_fAcc:=_fNewAcc;
+	    _fDec:=_fNewAcc;
+		
+	    _fVeloStart_2:=_fPreTaVel;
+	    _fVeloEnd_2:=0.0;
+	    _fTargetVelo_2:=_fPreTaVel;
+		_fPosIn:=_fDealt_S;       // 25.01.17
+		IF (stAxis.stPLCTONC.nRoadID_2<>0)AND (stAxis.stPLCTONC.nRoadID_1<>0)THEN   //判断指令
+				IF (stAxis.stPLCTONC.stStartPosition.nRoadID<>stAxis.stPLCTONC.stEndPosition.nRoadID)THEN
+				    IF(stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_2) THEN //第二路段
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							 IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								 _fDistance_2:=_fPos-stAxis.stPLCTONC.fRoad1_Length-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+							 ELSE
+								 _fDistance_2:=stAxis.stNcTOPLC.fActPos-(stAxis.stPLCTONC.fRoad2_Length-_fPos+stAxis.stPLCTONC.fRoad1_Length)-_fNewAccDis;
+							 END_IF
+						ELSE
+							IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								 _fDistance_2:=ABS(_fPos)-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+							 ELSE
+								 _fDistance_2:=stAxis.stNcTOPLC.fActPos-(stAxis.stPLCTONC.fRoad2_Length-ABS(_fPos))-_fNewAccDis;
+							 END_IF
+						END_IF
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+					ELSE
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+						ELSE
+							_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+						END_IF
+					END_IF
+				ELSE
+					IF(stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_2) THEN //第二路段
+						
+						IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+							_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+						ELSE
+							_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+						END_IF
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+					ELSE
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+						ELSE
+							_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+						END_IF
+					END_IF
+				END_IF
+				
+		ELSE
+				IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+					_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+				ELSE
+					_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+				END_IF
+		END_IF
+		(*IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+			_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+		ELSE
+			_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+		END_IF*)
+		_fAcc_2:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+	    _fDec_2:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+END_IF
+_bSynMode:=TRUE;
+_bEnable:=TRUE;
+stAxis.stAxisStatus.bSynDecActive:=TRUE;
+
+IF GVL_MC.cDebug  THEN
+		     _sMessage:=FC_StrContact(stAxis,'next road dec gap control');
+	         ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+END_IF]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_NextRoadDecSegment_2" Id="{c482f00a-2b66-4649-9db4-7619faddaaf7}">
+      <Implementation>
+        <ST><![CDATA[
+_fPreTaVel:=_pNextRoadPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+_fPreCuVel:=_pNextRoadPremover^.stNcTOPLC.fActVelo;
+_fPreAcc:=_fAcc;
+_fCuVel:=stAxis.stNcTOPLC.fActVelo;
+
+//_fPreDealt_S:=0.5*(_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fTa-_fPreCurTime)*_fPreCuVel;
+//_fPreDealt_S:=_pPremover^.stAxisStatus.stPathRef.fDealtInPos- 0.5*(_fPreTaVel+_fPreCuVel)*_fPreCurTime; //11.29	
+
+ _fPreSeg1TotalTime :=_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fTotalTime;   //05.26
+//_fPreDealt_S:=0.5*(_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fTa-_fPreCurTime)*_fPreCuVel;
+//_fPreDealt_S:=_pPremover^.stAxisStatus.stPathRef.fDealtInPos- 0.5*(_fPreTaVel+_fPreCuVel)*_fPreCurTime; //05.26  
+_fPreDealt_S:=0.5*(_fPreCuVel-_fPreTaVel)*( _fPreSeg1TotalTime-_fPreCurTime); //05.26 			      	   
+_fNewAcc:=(_fCuVel-_fPreTaVel)*(_fCuVel-_fPreTaVel)*0.5/(_fDealt_S+_fPreDealt_S);
+		   		 
+_fDecTime:=	(_fCuVel-_fPreTaVel)/_fNewAcc;
+_fNewAccDis:=(_fCuVel*_fCuVel-_fPreTaVel*_fPreTaVel)*0.5/_fNewAcc;
+
+_fMinDis:=_fPreTaVel*_fPreTaVel*0.5/_fPreAcc+_fNewAccDis;
+
+_fPos:=stAxis.stPLCTONC.stEndPosition.fPosition;
+
+IF( _fReminDis< _fMinDis)THEN
+		_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+	    _fVeloEnd:=0.0;
+	    _fTargetVelo:=_pNextRoadPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+		IF (stAxis.stPLCTONC.nRoadID_2<>0)AND (stAxis.stPLCTONC.nRoadID_1<>0)THEN   //判断指令
+				IF (stAxis.stPLCTONC.stStartPosition.nRoadID<>stAxis.stPLCTONC.stEndPosition.nRoadID)THEN
+				    IF(stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_2) THEN //第二路段
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							 IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								 _fDistance:=_fPos-stAxis.stPLCTONC.fRoad1_Length-stAxis.stNcTOPLC.fActPos;
+							 ELSE
+								 _fDistance:=stAxis.stNcTOPLC.fActPos-(stAxis.stPLCTONC.fRoad2_Length-_fPos+stAxis.stPLCTONC.fRoad1_Length);
+							 END_IF
+						ELSE
+							IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								 _fDistance:=ABS(_fPos)-stAxis.stNcTOPLC.fActPos;
+							 ELSE
+								 _fDistance:=stAxis.stNcTOPLC.fActPos-(stAxis.stPLCTONC.fRoad2_Length-ABS(_fPos));
+							 END_IF
+						END_IF
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+					ELSE
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+						ELSE
+							_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+						END_IF
+					END_IF
+				ELSE
+					IF(stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_2) THEN //第二路段
+						
+						IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+							_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+						ELSE
+							_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+						END_IF
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+					ELSE
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+						ELSE
+							_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+						END_IF
+					END_IF
+				END_IF
+				
+		ELSE
+				IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+					_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+				ELSE
+					_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+				END_IF
+		END_IF
+		(*IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+			_fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+		ELSE
+			_fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+		END_IF*)
+		_nPathSegment:=1;
+		_fAcc:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+	    _fDec:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+ELSE
+		_nPathSegment:=2;
+		_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+	    _fVeloEnd:=_fPreTaVel;
+	    _fTargetVelo:=_fPreTaVel;
+		_fDistance:=_fNewAccDis;
+		_fAcc:=_fNewAcc;
+	    _fDec:=_fNewAcc;
+		_fPosIn:=_fDealt_S+_fPreDealt_S;       //11.29
+	    _fVeloStart_2:=_fPreTaVel;
+	    _fVeloEnd_2:=0.0;
+	    _fTargetVelo_2:=_fPreTaVel;
+		IF (stAxis.stPLCTONC.nRoadID_2<>0)AND (stAxis.stPLCTONC.nRoadID_1<>0)THEN   //判断指令
+				IF (stAxis.stPLCTONC.stStartPosition.nRoadID<>stAxis.stPLCTONC.stEndPosition.nRoadID)THEN
+				    IF(stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_2) THEN //第二路段
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							 IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								 _fDistance_2:=_fPos-stAxis.stPLCTONC.fRoad1_Length-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+							 ELSE
+								 _fDistance_2:=stAxis.stNcTOPLC.fActPos-(stAxis.stPLCTONC.fRoad2_Length-_fPos+stAxis.stPLCTONC.fRoad1_Length)-_fNewAccDis;
+							 END_IF
+						ELSE
+							IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+								 _fDistance_2:=ABS(_fPos)-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+							 ELSE
+								 _fDistance_2:=stAxis.stNcTOPLC.fActPos-(stAxis.stPLCTONC.fRoad2_Length-ABS(_fPos))-_fNewAccDis;
+							 END_IF
+						END_IF
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+					ELSE
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+						ELSE
+							_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+						END_IF
+					END_IF
+				ELSE
+					IF(stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_2) THEN //第二路段
+						
+						IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+							_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+						ELSE
+							_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+						END_IF
+						stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+					ELSE
+						IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+						ELSE
+							_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+						END_IF
+					END_IF
+				END_IF
+		ELSE
+				IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+					_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+				ELSE
+					_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+				END_IF
+		END_IF
+		(*IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+			_fDistance_2:=_fPos-stAxis.stNcTOPLC.fActPos-_fNewAccDis;
+		ELSE
+			_fDistance_2:=stAxis.stNcTOPLC.fActPos-_fPos-_fNewAccDis;
+		END_IF*)
+		_fAcc_2:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+	    _fDec_2:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+		
+END_IF
+_bSynMode:=TRUE;
+_bEnable:=TRUE;
+stAxis.stAxisStatus.bSynDecActive:=TRUE;
+IF GVL_MC.cDebug  THEN
+	_sMessage:=FC_StrContact(stAxis,'next road dec2 gap control');
+	 ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+END_IF]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_NextRoadGapControl" Id="{6650305b-2e4b-4b60-96db-e9bb6a9d8972}">
+      <Implementation>
+        <ST><![CDATA[
+//IF ((_fRealDis -_fGapSet)<=cDealtGap)AND(_pNextRoadPremover^.stAxisStatus.stPathRef.fTargetVelocity <stAxis.stAxisStatus.stPathRef.fTargetVelocity) THEN    //10.18 
+(*IF ((_fRealDis -_fGapSet)<=_fSetDealtGap)AND(_pNextRoadPremover^.stAxisStatus.stPathRef.fTargetVelocity <stAxis.stAxisStatus.stPathRef.fTargetVelocity) THEN    //10.18
+	
+		_fPos:=stAxis.stPLCTONC.stEndPosition.fPosition;
+		_fTargetVelo:=_pNextRoadPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+		_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+		_fVeloEnd:=0;
+		_fAcc:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+		_fDec:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+		IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+		     _fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+	    ELSE
+			 _fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+	    END_IF
+		_bEnable:=TRUE;
+		_nPathSegment:=1;
+		stAxis.stAxisStatus.bSynDecActive:=TRUE;
+		IF GVL_MC.cDebug  THEN
+		     _sMessage:=FC_StrContact(stAxis,'nextroad gap control');
+	         ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+        END_IF
+		RETURN;
+END_IF *)
+
+IF _fRealDis <=0 THEN   //05.19
+	RETURN;
+END_IF
+
+IF (_pNextRoadPremover^.stAxisStatus.nNcCycleCounter<>0)THEN 
+	 A_NextRoadCatchUp();
+   // IF ((_fRealDis -_fGapSet)<=cDealtGap) THEN    //10.18 
+	IF ((_fRealDis -_fGapSet)<=_fSetDealtGap) THEN    //10.18 	
+			IF _fbDecNextPathTrig.Q THEN 
+					   IF (stAxis.stPLCTONC.nRoadID_2<>0)AND (stAxis.stPLCTONC.nRoadID_1<>0)AND(stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_2)THEN
+						   IF (stAxis.stPLCTONC.stStartPosition.nRoadID<>stAxis.stPLCTONC.stEndPosition.nRoadID)THEN
+								IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+									IF NOT stAxis.stPLCTONC.bRoadDirection  THEN
+										 _fPos:=stAxis.stPLCTONC.stEndPosition.fPosition-stAxis.stPLCTONC.fRoad1_Length;
+									ELSE
+										_fPos:=stAxis.stPLCTONC.fRoad2_Length-(stAxis.stPLCTONC.stEndPosition.fPosition-stAxis.stPLCTONC.fRoad1_Length);
+									END_IF
+									_fDistance:=ABS(stAxis.stNcTOPLC.fActPos-_fPos);
+								ELSE
+									IF NOT stAxis.stPLCTONC.bRoadDirection  THEN
+										 _fPos:=ABS(stAxis.stPLCTONC.stEndPosition.fPosition);
+									ELSE
+										_fPos:=stAxis.stPLCTONC.fRoad2_Length-ABS(stAxis.stPLCTONC.stEndPosition.fPosition);
+									END_IF
+									_fDistance:=ABS(stAxis.stNcTOPLC.fActPos-_fPos);
+								END_IF
+						   ELSE
+								_fPos:=stAxis.stPLCTONC.stEndPosition.fPosition;
+								_fDistance:=ABS(stAxis.stNcTOPLC.fActPos-_fPos);
+						   END_IF
+					   ELSE
+						   _fPos:=stAxis.stPLCTONC.stEndPosition.fPosition;
+						   IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+							  _fDistance:=_fPos-stAxis.stNcTOPLC.fActPos;
+						   ELSE
+							  _fDistance:=stAxis.stNcTOPLC.fActPos-_fPos;
+						   END_IF
+					   END_IF
+					   //_fPos:=stAxis.stPLCTONC.stEndPosition.fPosition;
+					   IF _pNextRoadPremover^.stPLCTONC.bCmdDceUpdate THEN
+							_fTargetVelo:=_pNextRoadPremover^.stPLCTONC.fTargetVelocity;
+					   ELSE
+						   _fTargetVelo:=_pNextRoadPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+					   END_IF
+					   //_fTargetVelo:=_pNextRoadPremover^.stAxisStatus.stPathRef.fTargetVelocity;
+					   _fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+					   _fVeloEnd:=0;
+					   _fAcc:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+					   _fDec:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+					   
+					   _bEnable:=TRUE;
+					   _nPathSegment:=1;
+					   stAxis.stAxisStatus.bSynDecActive:=TRUE;
+					   IF GVL_MC.cDebug  THEN
+						_sMessage:=FC_StrContact(stAxis,'Nextroad SynDecActive path');
+						 ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+					   END_IF
+			END_IF
+	END_IF
+
+END_IF
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_NodeConfig" Id="{98bb96e2-9143-41c4-870a-0283974cd4c9}">
+      <Implementation>
+        <ST><![CDATA[IF stAxis.stNcTOPLC.nCuRoadID=0 THEN 
+	RETURN;
+END_IF 
+
+_nMoverCounter:=GVL_MC.aRoadRef[stAxis.stNcTOPLC.nCuRoadID].nMoverCounter;
+IF _nMoverCounter<>_nLastMoverCounter AND _nMoverCounter<>0  THEN 
+	
+    FOR _nNodeIndex:=1 TO GVL_MC.MAX_MOVER  DO
+	    IF (GVL_MC.aRoadRef[stAxis.stNcTOPLC.nCuRoadID].aNode[_nNodeIndex].nAxisId=stAxis.stNcTOPLC.nAxisId)THEN
+			stAxis.stAxisStatus.pPremover:=GVL_MC.aRoadRef[stAxis.stNcTOPLC.nCuRoadID].aNode[_nNodeIndex].pPremover;
+	        stAxis.stAxisStatus.pAftermover:=GVL_MC.aRoadRef[stAxis.stNcTOPLC.nCuRoadID].aNode[_nNodeIndex].pAftermover;
+			EXIT;
+		END_IF
+   END_FOR
+   _nLastMoverCounter:=GVL_MC.aRoadRef[stAxis.stNcTOPLC.nCuRoadID].nMoverCounter;   //05.08 修改前置后置更新条件
+END_IF
+
+
+
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_NodeUpdate" Id="{55b7c2ab-dc1d-49ef-9e01-f8ad29b21658}">
+      <Implementation>
+        <ST><![CDATA[// road node 更新
+// 动子出现在某road上增加 01.09
+_fbTrigRoadUpdate(CLK:=stAxis.stCodToNCParam.bArrayReseved1 , Q=> );
+//IF stAxis.stNcTOPLC.nCuRoadID=0 AND stAxis.stCodToNCParam.bArrayReseved1  AND stAxis.stCodToNCParam.nRoadID<>0 THEN
+IF _fbTrigRoadUpdate.Q  AND stAxis.stCodToNCParam.nRoadID<>0 AND NOT _bInsertOk THEN
+	stAxis.stNcTOPLC.nCuRoadID:=stAxis.stCodToNCParam.nRoadID;
+	_bInsertOk :=_fbAxisGroupList.M_InsertNode(aRoadRef:=GVL_MC.aRoadRef , nSysType:=stAxis.stAxisParam.stRoadParam.nSysType , nRoadId:=stAxis.stCodToNCParam.nRoadID , pAixs:=ADR(stAxis) );
+    (*IF GVL_MC.cDebug  THEN
+	    _sMessage2:=FC_StrContactEx(stAxis,'insertAxis');
+	     ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage2, '');
+    END_IF*)
+	_sMessage3:='';
+	_sMessage3:=CONCAT(DWORD_TO_STRING(stAxis.stNcTOPLC.nAxisId),',insertAxis');
+	IF stAxis.stNcTOPLC.nCuRoadID>0 AND stAxis.stNcTOPLC.nCuRoadID<=GVL_MC.cRoadNum AND GVL_MC.cDebug THEN
+		IF GVL_MC.aRoadRef[stAxis.stNcTOPLC.nCuRoadID].nMoverCounter>0  THEN
+			FOR _nPreIndex:=1 TO GVL_MC.aRoadRef[stAxis.stNcTOPLC.nCuRoadID].nMoverCounter   DO
+				_sMessage3:=CONCAT(_sMessage3,DWORD_TO_STRING(GVL_MC.aRoadRef[stAxis.stNcTOPLC.nCuRoadID].aNode[_nPreIndex].nAxisId));
+				_sMessage3:=CONCAT(_sMessage3,',');
+			END_FOR
+			ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage3, '');
+		END_IF
+	END_IF
+END_IF
+IF NOT stAxis.stCodToNCParam.bArrayReseved1 THEN
+	_bInsertOk:=FALSE;
+END_IF
+// 07.04
+IF stAxis.stNcTOPLC.nCuRoadID=0 THEN 
+	RETURN;
+END_IF 
+
+_fbTrigRoadDeleUpdate(CLK:=stAxis.stCodToNCParam.bArrayReseved2 , Q=> );   //01.29
+IF _fbTrigRoadDeleUpdate.Q THEN
+	_bDeleteNodeOk:=_fbAxisGroupList.M_DeleteNode(aRoadRef:=GVL_MC.aRoadRef , nSysType:=stAxis.stAxisParam.stRoadParam.nSysType , nRoadId:=stAxis.stNcTOPLC.nCuRoadID , pAixs:=ADR(stAxis));
+	(*IF GVL_MC.cDebug  THEN
+	    _sMessage2:=FC_StrContactEx(stAxis,'deleteAxis');
+	     ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage2, '');
+    END_IF*)
+	_sMessage3:='';
+	_sMessage3:=CONCAT(DWORD_TO_STRING(stAxis.stNcTOPLC.nAxisId),',deleteAxis');
+    IF stAxis.stNcTOPLC.nCuRoadID>0 AND stAxis.stNcTOPLC.nCuRoadID<=GVL_MC.cRoadNum AND GVL_MC.cDebug THEN
+	    IF GVL_MC.aRoadRef[stAxis.stNcTOPLC.nCuRoadID].nMoverCounter>0 THEN
+			FOR _nPreIndex:=1 TO GVL_MC.aRoadRef[stAxis.stNcTOPLC.nCuRoadID].nMoverCounter   DO
+				_sMessage3:=CONCAT(_sMessage3,DWORD_TO_STRING(GVL_MC.aRoadRef[stAxis.stNcTOPLC.nCuRoadID].aNode[_nPreIndex].nAxisId));
+				_sMessage3:=CONCAT(_sMessage3,',');
+			END_FOR
+			ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage3, '');
+		END_IF
+	END_IF
+END_IF
+
+// 先增加后删除
+(*IF stAxis.stNcTOPLC.nCuRoadID=0 THEN 
+	RETURN;
+END_IF *) //07.04
+IF (_nLastRoadID<>stAxis.stNcTOPLC.nCuRoadID) AND (_nLastRoadID<>0)THEN
+	
+	_nLastMoverCounter:=GVL_MC.aRoadRef[stAxis.stNcTOPLC.nCuRoadID].nMoverCounter;  //********重新修改前置后质更新条件     05.08
+	_bAddNodeOk :=_fbAxisGroupList.M_AddNode(aRoadRef:=GVL_MC.aRoadRef , nRoadId:=stAxis.stNcTOPLC.nCuRoadID , pAixs:=ADR(stAxis));
+	//_bAddNodeOk :=_fbAxisGroupList.M_InsertNode(aRoadRef:=GVL_MC.aRoadRef , nSysType:=stAxis.stAxisParam.stRoadParam.nSysType , nRoadId:=stAxis.stNcTOPLC.nCuRoadID , pAixs:=ADR(stAxis) );
+    _bDeleteNodeOk:=_fbAxisGroupList.M_DeleteNode(aRoadRef:=GVL_MC.aRoadRef , nSysType:=stAxis.stAxisParam.stRoadParam.nSysType , nRoadId:=_nLastRoadID , pAixs:=ADR(stAxis));
+	(*IF GVL_MC.cDebug  THEN
+	    //_sMessage2:=FC_StrContactEx(stAxis,'roadchange');
+	    // ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage2, '');
+		  _sMessage3:=CONCAT(DWORD_TO_STRING(stAxis.stNcTOPLC.nAxisId),',roadchange');
+		  _sMessage3:=CONCAT(_sMessage3,',');
+		  _sMessage3:=CONCAT(_sMessage3,LREAL_TO_STRING(stAxis.stNcTOPLC.fActPos));
+		  _sMessage3:=CONCAT(_sMessage3,',');
+		  _sMessage3:=CONCAT(_sMessage3,DWORD_TO_STRING(GVL_MC.aRoadRef[stAxis.stNcTOPLC.nCuRoadID].aNode[GVL_MC.aRoadRef[stAxis.stNcTOPLC.nCuRoadID].nMoverCounter].pMover^.stNcTOPLC.nAxisId));
+          _sMessage3:=CONCAT(_sMessage3,',');	 
+		  _sMessage3:=CONCAT(_sMessage3,LREAL_TO_STRING(GVL_MC.aRoadRef[stAxis.stNcTOPLC.nCuRoadID].aNode[GVL_MC.aRoadRef[stAxis.stNcTOPLC.nCuRoadID].nMoverCounter].pMover^.stNcTOPLC.fActPos));
+   	      _sMessage3:=CONCAT(_sMessage3,',');
+		  _sMessage3:=CONCAT(_sMessage3,UINT_TO_STRING(GVL_MC.aRoadRef[stAxis.stNcTOPLC.nCuRoadID].nMoverCounter));
+		  ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage3, '');
+    END_IF*)
+	_sMessage3:='';
+	_sMessage3:=CONCAT(DWORD_TO_STRING(stAxis.stNcTOPLC.nAxisId),',roadchange');
+	IF stAxis.stNcTOPLC.nCuRoadID>0 AND stAxis.stNcTOPLC.nCuRoadID<=GVL_MC.cRoadNum AND GVL_MC.cDebug THEN
+		IF GVL_MC.aRoadRef[stAxis.stNcTOPLC.nCuRoadID].nMoverCounter>0  THEN
+			FOR _nPreIndex:=1 TO GVL_MC.aRoadRef[stAxis.stNcTOPLC.nCuRoadID].nMoverCounter   DO
+				
+				_sMessage3:=CONCAT(_sMessage3,DWORD_TO_STRING(GVL_MC.aRoadRef[stAxis.stNcTOPLC.nCuRoadID].aNode[_nPreIndex].nAxisId));
+				_sMessage3:=CONCAT(_sMessage3,',');
+			END_FOR
+			ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage3, '');
+		END_IF
+	END_IF
+END_IF
+
+
+
+_nLastRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+
+_bAddNodeOk:=FALSE;
+_bDeleteNodeOk:=FALSE;
+
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_Planning" Id="{54167c9a-5a41-4eb8-bb62-697252ca27a5}">
+      <Implementation>
+        <ST><![CDATA[IF (stAxis.stPLCTONC.ePlanningMode=E_PlanningMode.PLANNINGMODE_TSHAPED)THEN 
+   A_TShaped();
+ELSIF (stAxis.stPLCTONC.ePlanningMode=E_PlanningMode.PLANNINGMODE_SSHAPED)THEN 
+   A_SShapedPlanning();
+ELSIF (stAxis.stPLCTONC.ePlanningMode=E_PlanningMode.PLANNINGMODE_LINEAR)THEN 
+  A_LinearPlanning();
+
+ELSIF (stAxis.stPLCTONC.ePlanningMode=E_PlanningMode.PLANNINGMODE_FOLLOWMASTER)THEN 
+  A_FollowMasterPlanning();
+  
+ELSIF (stAxis.stPLCTONC.ePlanningMode=E_PlanningMode.PLANNINGMODE_PLOYNOM3)THEN 
+	A_Ploynom3Planning();
+ELSIF (stAxis.stPLCTONC.ePlanningMode=E_PlanningMode.PLANNINGMODE_FOLLOW)THEN 
+	A_FollowPlanning();	
+ELSE 
+   A_TShaped();
+
+END_IF
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_Ploynom3Planning" Id="{dcfe1d6d-0a14-44aa-8c67-06ee6e411d9f}">
+      <Implementation>
+        <ST><![CDATA[//_fbAxis.strStartPoint.fPosition:=stAxis.stNcTOPLC.fActPos;
+//_fbAxis.strEndPoint.fPosition:=stAxis.stPLCTONC.stEndPosition.fPosition;
+_fbAxis.strStartPoint.fPosition:=0;
+_fbAxis.strEndPoint.fPosition:=ABS(stAxis.stPLCTONC.stEndPosition.fPosition-stAxis.stNcTOPLC.fActPos)/ABS(stAxis.stPLCTONC.stMasterParam.fEndPos-stAxis.stPLCTONC.stMasterParam.fStartPos);
+
+IF (stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo<>0)  THEN 
+    _fbAxis.strStartPoint.fVelocity :=stAxis.stNcTOPLC.fActVelo/stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo;
+ELSE
+	_fbAxis.strStartPoint.fVelocity :=0;
+END_IF
+
+//_fbAxis.strEndPoint.fVelocity:=stAxis.stAxisStatus.stPathRef.fVeloRatio;
+_fbAxis.strEndPoint.fVelocity:=stAxis.stPLCTONC.fGearRatio;
+_stPolynom5Factor:=_fbAxis.M_Ploynom3(fTheat_Start:=0 ,
+               fTheat_End:=1  );
+			   
+
+_bCalculateDone:=TRUE;]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_Ploynom3Position" Id="{39384c29-892f-4e67-b4ad-018d035c5fb3}">
+      <Implementation>
+        <ST><![CDATA[_nSysType:=stAxis.stPLCTONC.nSysType;
+stAxis.stNcTOPLC.nAxisState:=6;
+stAxis.stAxisStatus.nNcCycleCounter:=stAxis.stAxisStatus.nNcCycleCounter+1;
+_fMasterStartPos:=stAxis.stPLCTONC.stMasterParam.fStartPos;
+_fMasterEndPos:=stAxis.stPLCTONC.stMasterParam.fEndPos;
+
+_fSlaveStartPos:=stAxis.stPLCTONC.stStartPosition.fPosition;
+// 自变量区间归一化
+
+_fDealt_X:=ABS(_fMasterEndPos-_fMasterStartPos);
+IF (_fDealt_X<=0)THEN 
+	RETURN;
+END_IF
+_fPos_X:=ABS(stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActPos-_fMasterStartPos)/_fDealt_X;
+
+IF (_fPos_X<=1)THEN
+
+	// 归一化从轴位置、速度、加速度和加加速计算
+	_stAxis_Point.fPosition:=_stPolynom5Factor.fA0+ _stPolynom5Factor.fA1*_fPos_X+ _stPolynom5Factor.fA2*_fPos_X*_fPos_X
+						   +_stPolynom5Factor.fA3*_fPos_X*_fPos_X*_fPos_X; 
+						   
+	_stAxis_Point.fVelocity:=_stPolynom5Factor.fA1+ 2*_stPolynom5Factor.fA2*_fPos_X+3*_stPolynom5Factor.fA3*_fPos_X*_fPos_X;
+	
+	_stAxis_Point.fAccleration:=2*_stPolynom5Factor.fA2+6*_stPolynom5Factor.fA3*_fPos_X;
+	_stAxis_Point.fbJerk:=6*_stPolynom5Factor.fA3;
+	
+	IF stAxis.stAxisStatus.bPositiveDirection THEN
+		stAxis.stNcTOPLC.fActPos:=_fDealt_X*_stAxis_Point.fPosition+_fSlaveStartPos;    
+	ELSE
+		stAxis.stNcTOPLC.fActPos:=_fSlaveStartPos-_fDealt_X*_stAxis_Point.fPosition;    
+	END_IF                  
+	stAxis.stNcTOPLC.fSetVelo:=_stAxis_Point.fVelocity*ABS(stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo);
+	stAxis.stNcTOPLC.fSetAcc:=_stAxis_Point.fAccleration*ABS(stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo*stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo)/_fDealt_X;
+	stAxis.stNcTOPLC.fSetJerk:=_stAxis_Point.fbJerk*ABS(stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo*stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo*stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo)/(_fDealt_X*_fDealt_X);
+							  
+	stAxis.stNcTOPLC.fActVelo:=stAxis.stNcTOPLC.fSetVelo;
+	_stAxis_Point.fPosition:=stAxis.stNcTOPLC.fActPos;
+ELSE
+	stAxis.stNcTOPLC.fSetVelo:=LTRUNC(stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo*stAxis.stPLCTONC.fGearRatio);
+    stAxis.stNcTOPLC.fActVelo:=LTRUNC(stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo*stAxis.stPLCTONC.fGearRatio);
+    IF stAxis.stAxisStatus.bPositiveDirection THEN
+         _stAxis_Point.fPosition:=stAxis.stAxisStatus.pMaster^.stNcTOPLC.fDealtPos*stAxis.stPLCTONC.fGearRatio +_stAxis_Point.fPosition;
+
+    ELSE
+        _stAxis_Point.fPosition:=-stAxis.stAxisStatus.pMaster^.stNcTOPLC.fDealtPos*stAxis.stPLCTONC.fGearRatio +_stAxis_Point.fPosition;
+    END_IF
+	stAxis.stNcTOPLC.fDealtPos:=ABS(LTRUNC(_stAxis_Point.fPosition)-stAxis.stNcTOPLC.fActPos);    //01.13
+	stAxis.stNcTOPLC.fActPos:=LTRUNC(_stAxis_Point.fPosition);
+END_IF
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_Ploynom5Position" Id="{99d591a6-5651-4766-a8d4-7f5693c9e14c}">
+      <Implementation>
+        <ST><![CDATA[_bEndOfProfile:=FALSE;
+_nSysType:=stAxis.stPLCTONC.nSysType;
+stAxis.stNcTOPLC.nAxisState:=6;
+stAxis.stAxisStatus.nNcCycleCounter:=stAxis.stAxisStatus.nNcCycleCounter+1;
+
+//数据装载
+IF stAxis.stPLCTONC.stCamParam.bCamLoad THEN 
+   _stCamParam:=stAxis.stPLCTONC.stCamParam;
+   stAxis.stPLCTONC.stCamParam.bCamLoad:=FALSE;
+END_IF 
+
+//buffer 更新
+ _fbCamBufUpdateTrig(CLK:= (INT_TO_UINT(_nIndex)=(cPointBuffer-1)OR (NOT _bFisrtUpdate)), Q=> );
+
+IF(_stCamParam.nElements> cPointBuffer) THEN
+   IF _fbCamBufUpdateTrig.Q   THEN
+      _aCamBuffer:=_stCamParam.aCamBuffer;
+	  _nIndex:=0;
+	  _nCamBufferNum:=_nCamBufferNum+1;
+   END_IF 
+ELSE
+	_aCamBuffer:=_stCamParam.aCamBuffer;
+	_nCamBufferNum:=1;
+END_IF
+
+// 点更新及曲线系数计算
+_fbCamPointUpdateTrig(CLK:=(_nIndex<>_nLastIndex)OR (NOT _bFisrtUpdate)   , Q=> );
+IF _fbCamPointUpdateTrig.Q THEN
+     IF (_stCamParam.nPointType=1) THEN  //xyva
+         _fMasterStartPos:=_aCamBuffer[_nIndex].fDx;
+	     _fMasterEndPos:=_aCamBuffer[_nIndex+1].fDx;
+	     _fDealt_X:=ABS(_fMasterEndPos-_fMasterStartPos);
+		 IF (_fDealt_X=0)THEN 
+			 RETURN;
+		 END_IF
+		_fSlaveStartPos :=_aCamBuffer[_nIndex].fDy;
+		_fbAxis.strStartPoint.fPosition:=0;
+		_fbAxis.strEndPoint.fPosition:=ABS((_aCamBuffer[_nIndex+1].fDy-_fSlaveStartPos))/_fDealt_X;
+		_fbAxis.strStartPoint.fVelocity :=_aCamBuffer[_nIndex].fDv;
+		_fbAxis.strEndPoint.fVelocity:=_aCamBuffer[_nIndex+1].fDv;
+		_fbAxis.strStartPoint.fAccleration :=_aCamBuffer[_nIndex].fDa*_fDealt_X;
+		_fbAxis.strEndPoint.fAccleration:=_aCamBuffer[_nIndex+1].fDa*_fDealt_X;
+		_fbAxis.strStartPoint.fbJerk :=_aCamBuffer[_nIndex].fDa*_fDealt_X*_fDealt_X;
+		_fbAxis.strEndPoint.fbJerk:=_aCamBuffer[_nIndex+1].fDa*_fDealt_X*_fDealt_X;
+	 ELSIF (_stCamParam.nPointType=2) THEN   //xy
+		 _fMasterStartPos:=_aCamBuffer[_nIndex].fDx;
+	     _fMasterEndPos:=_aCamBuffer[_nIndex+1].fDx;
+	     _fDealt_X:=ABS(_fMasterEndPos-_fMasterStartPos);
+		 _fSlaveStartPos :=_aCamBuffer[_nIndex].fDy;
+		 _fbAxis.strStartPoint.fPosition:=0;
+		 IF (_fDealt_X=0)THEN 
+			 RETURN;
+		 END_IF
+		 _fbAxis.strEndPoint.fPosition:=ABS(_aCamBuffer[_nIndex+1].fDy-_fSlaveStartPos)/_fDealt_X;
+		 IF (_nIndex=0)AND (_nCamBufferNum=1)THEN
+		    _fbAxis.strStartPoint.fVelocity :=0;
+			_fbAxis.strStartPoint.fAccleration :=0;
+		 ELSE
+			 _fbAxis.strStartPoint.fVelocity :=1;
+			 _fbAxis.strStartPoint.fAccleration :=0;
+		 END_IF
+
+		 _fbAxis.strEndPoint.fVelocity:=1;
+		 IF _stCamParam.bPeriodic AND (stAxis.stNcTOPLC.nCuSegIndex =(_stCamParam.nElements-1)) THEN
+			 _fbAxis.strEndPoint.fVelocity:=0;
+		 END_IF
+		 _fbAxis.strStartPoint.fAccleration :=0;
+		 _fbAxis.strEndPoint.fAccleration:=0;
+		 _fbAxis.strStartPoint.fbJerk :=0;
+		 _fbAxis.strEndPoint.fbJerk:=0;
+		
+     ELSE
+		 RETURN;
+		 
+	 END_IF
+	_stPolynom5Factor:=_fbAxis.M_Ploynom5(fTheat_Start:=0 ,fTheat_End:=1);
+	_bFisrtUpdate:=TRUE;
+END_IF 
+_nLastIndex :=_nIndex;
+IF (_fDealt_X=0)THEN 
+	RETURN;
+END_IF
+// 位置计算
+
+// 自变量区间归一化
+//_fDealt_X:=_fMasterEndPos-_fMasterStartPos;
+IF stAxis.stAxisStatus.bPositiveDirection  THEN
+    _fPos_X:=(stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActPos-_fMasterStartPos)/ABS(_fDealt_X);
+ELSE
+	_fPos_X:=(_fMasterStartPos-stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActPos)/ABS(_fDealt_X);
+END_IF
+
+IF (_fPos_X<0)THEN 
+	RETURN;
+END_IF
+
+_stAxis_Point.fPosition:=_stPolynom5Factor.fA0+ _stPolynom5Factor.fA1*_fPos_X+ _stPolynom5Factor.fA2*_fPos_X*_fPos_X
+                        +_stPolynom5Factor.fA3*_fPos_X*_fPos_X*_fPos_X+_stPolynom5Factor.fA4*_fPos_X*_fPos_X*_fPos_X*_fPos_X
+						+_stPolynom5Factor.fA5*_fPos_X*_fPos_X*_fPos_X*_fPos_X*_fPos_X;
+                          
+						
+_stAxis_Point.fVelocity:=_stPolynom5Factor.fA1+ 2*_stPolynom5Factor.fA2*_fPos_X+3*_stPolynom5Factor.fA3*_fPos_X*_fPos_X
+                          +4*_stPolynom5Factor.fA4*_fPos_X*_fPos_X*_fPos_X+5*_stPolynom5Factor.fA5*_fPos_X*_fPos_X*_fPos_X*_fPos_X;
+                          
+_stAxis_Point.fAccleration:= 2*_stPolynom5Factor.fA2+6*_stPolynom5Factor.fA3*_fPos_X+12*_stPolynom5Factor.fA4*_fPos_X*_fPos_X+20*_stPolynom5Factor.fA5*_fPos_X*_fPos_X*_fPos_X;
+_stAxis_Point.fbJerk:=6*_stPolynom5Factor.fA3+24*_stPolynom5Factor.fA4*_fPos_X+60*_stPolynom5Factor.fA5*_fPos_X*_fPos_X;
+
+IF stAxis.stAxisStatus.bPositiveDirection THEN 
+	//stAxis.stNcTOPLC.fSetPos:=_stAxis_Point.fPosition*_fDealt_X+_fSlaveStartPos;
+	stAxis.stNcTOPLC.fActPos:=_stAxis_Point.fPosition*_fDealt_X+_fSlaveStartPos;
+	stAxis.stNcTOPLC.fSetVelo:=_stAxis_Point.fVelocity*ABS(stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo);
+	stAxis.stNcTOPLC.fSetAcc:=_stAxis_Point.fAccleration*ABS(stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo*stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo)/_fDealt_X;
+	stAxis.stNcTOPLC.fSetJerk:=_stAxis_Point.fbJerk*ABS(stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo*stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo*stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo)/(_fDealt_X*_fDealt_X);
+	//stAxis.stNcTOPLC.fActPos:=stAxis.stNcTOPLC.fSetPos;
+	stAxis.stNcTOPLC.fActVelo:=stAxis.stNcTOPLC.fSetVelo;
+ELSE
+	//stAxis.stNcTOPLC.fSetPos:=-_stAxis_Point.fPosition*_fDealt_X+_fSlaveStartPos;
+	stAxis.stNcTOPLC.fActPos:=-_stAxis_Point.fPosition*_fDealt_X+_fSlaveStartPos;
+	stAxis.stNcTOPLC.fSetVelo:=_stAxis_Point.fVelocity*ABS(stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo);
+	stAxis.stNcTOPLC.fSetAcc:=_stAxis_Point.fAccleration*ABS(stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo*stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo)/_fDealt_X;
+	stAxis.stNcTOPLC.fSetJerk:=_stAxis_Point.fbJerk*ABS(stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo*stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo*stAxis.stAxisStatus.pMaster^.stNcTOPLC.fActVelo)/(_fDealt_X*_fDealt_X);
+	//stAxis.stNcTOPLC.fActPos:=stAxis.stNcTOPLC.fSetPos;
+	stAxis.stNcTOPLC.fActVelo:=stAxis.stNcTOPLC.fSetVelo;
+END_IF
+(*IF (_nSysType=3)THEN   //环形
+	IF stAxis.stAxisStatus.bPositiveDirection THEN
+		stAxis.stNcTOPLC.nModuloSetTurns:=LREAL_TO_DINT(LTRUNC(stAxis.stNcTOPLC.fSetPos/stAxis.stNcTOPLC.fModuloFactor));
+	ELSE
+		IF stAxis.stNcTOPLC.fSetPos<(stAxis.stNcTOPLC.nModuloSetTurns*stAxis.stNcTOPLC.fModuloFactor)THEN 
+				stAxis.stNcTOPLC.nModuloSetTurns:=stAxis.stNcTOPLC.nModuloSetTurns-1;
+		END_IF
+	END_IF
+	stAxis.stNcTOPLC.fModuloSetPos:= MODABS(stAxis.stNcTOPLC.fSetPos,stAxis.stNcTOPLC.fModuloFactor);
+ELSE
+	stAxis.stNcTOPLC.fModuloSetPos:= ABS(stAxis.stNcTOPLC.fSetPos);
+END_IF*)
+
+
+stAxis.stNcTOPLC.nCuSegIndex:=INT_TO_UINT(_nIndex+1)+(_nCamBufferNum-1)*cPointBuffer;
+// index更新
+IF stAxis.stAxisStatus.bPositiveDirection THEN 
+	IF (stAxis.stNcTOPLC.fActPos>=_aCamBuffer[_nIndex+1].fDy)THEN 
+		_nIndex:=_nIndex+1;
+		IF stAxis.stNcTOPLC.nCuSegIndex >(_stCamParam.nElements-1) THEN      //结束条件判断
+			_bCalculateDone:=FALSE;
+			_nIndex:=0;
+			_nLastIndex :=0;
+			 stAxis.stAxisStatus.stPathRef.bCalculateDone:=FALSE;
+			 stAxis.stNcTOPLC.nAxisState:=2;
+		 
+			 stAxis.stNcTOPLC.fSetAcc:=0;
+			 _bFisrtUpdate:=FALSE;
+			 stAxis.stNcTOPLC.nCuSegIndex:=0;
+			 _nCamBufferNum:=0;
+			 _fDealt_X:=0;
+			 _fbCamBufUpdateTrig(CLK:= FALSE, Q=> );
+			 _fbCamPointUpdateTrig(CLK:=FALSE   , Q=> );
+			 _bEndOfProfile:=TRUE;
+		END_IF
+	END_IF
+ELSE
+	IF (stAxis.stNcTOPLC.fActPos<=_aCamBuffer[_nIndex+1].fDy)THEN 
+		_nIndex:=_nIndex+1;
+		IF stAxis.stNcTOPLC.nCuSegIndex >(_stCamParam.nElements-1) THEN      //结束条件判断
+			_bCalculateDone:=FALSE;
+			_nIndex:=0;
+			_nLastIndex :=0;
+			 stAxis.stAxisStatus.stPathRef.bCalculateDone:=FALSE;
+			 stAxis.stNcTOPLC.nAxisState:=2;
+		 
+			 stAxis.stNcTOPLC.fSetAcc:=0;
+			 _bFisrtUpdate:=FALSE;
+			 stAxis.stNcTOPLC.nCuSegIndex:=0;
+			 _nCamBufferNum:=0;
+			 _fDealt_X:=0;
+			 _fbCamBufUpdateTrig(CLK:= FALSE, Q=> );
+			 _fbCamPointUpdateTrig(CLK:=FALSE   , Q=> );
+			 _bEndOfProfile:=TRUE;
+		END_IF
+	END_IF
+END_IF
+
+
+
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_PositionHandle" Id="{ed1d1600-9639-4125-9970-1382f471f966}">
+      <Implementation>
+        <ST><![CDATA[//stAxis.stNcTOPLC.fActPos 输入
+//stAxis.stNcTOPLC.fSetPos输出
+IF (stAxis.stPLCTONC.eCommand=E_Command.COMMAND_ABSOLUTEFORK)OR (stAxis.stPLCTONC.eCommand=E_Command.COMMAND_CAMIN)OR 
+	(stAxis.stPLCTONC.eCommand=E_Command.COMMAND_GEARINPOS)THEN
+	stAxis.stNcTOPLC.fSetPos:=stAxis.stNcTOPLC.fActPos;
+    
+ELSE
+	IF (stAxis.stAxisParam.stRoadParam.nSysType=1) OR (stAxis.stAxisParam.stRoadParam.nSysType=4) THEN 
+		stAxis.stNcTOPLC.fSetPos:=stAxis.stNcTOPLC.fActPos;
+	ELSE
+		_fbFilterV2(nWindowSize:=nWindowSize , fData:=stAxis.stNcTOPLC.fActPos , fOutputData=>stAxis.stNcTOPLC.fSetPos );
+	END_IF
+END_IF
+
+IF (stAxis.stPLCTONC.nSysType=3)THEN
+	IF stAxis.stAxisStatus.bPositiveDirection THEN
+		stAxis.stNcTOPLC.nModuloSetTurns:=LREAL_TO_DINT(LTRUNC(stAxis.stNcTOPLC.fActPos/stAxis.stNcTOPLC.fModuloFactor));
+	ELSE
+		IF stAxis.stNcTOPLC.fActPos<(stAxis.stNcTOPLC.nModuloSetTurns*stAxis.stNcTOPLC.fModuloFactor)THEN 
+			 stAxis.stNcTOPLC.nModuloSetTurns:=stAxis.stNcTOPLC.nModuloSetTurns-1;
+		END_IF
+	END_IF
+							
+	stAxis.stNcTOPLC.fModuloSetPos:= MODABS(stAxis.stNcTOPLC.fSetPos,stAxis.stNcTOPLC.fModuloFactor);
+ELSE
+	stAxis.stNcTOPLC.fModuloSetPos:=ABS(stAxis.stNcTOPLC.fSetPos);
+	// 04.30增加环形位置同步
+	IF (stAxis.stAxisParam.stRoadParam.nSysType=3)THEN
+		stAxis.stNcTOPLC.fModuloSetPos:= MODABS(stAxis.stNcTOPLC.fSetPos,stAxis.stNcTOPLC.fModuloFactor);
+	END_IF
+END_IF]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_SShapedPlanning" Id="{e403a340-83fb-4a79-ab09-98f7d6e97203}">
+      <Implementation>
+        <ST><![CDATA[_stSShapedParam:=_fbAxis.M_SShaped(
+					fStartPos:=_fStartPos , 
+					fEndPos:=_fEndPos , 
+					fStartVelo:=_fVeloStart , 
+					fEndVelo:=_fVeloEnd , 
+					fTargetVelo:=_fTargetVelo , 
+					fTargetAcc:=_fAcc , 
+					fTargetJerk:=_fJerk );
+					
+_stPathRef._nPathSegmentNum:=1;
+_stPathRef.aExecutablePath[0].fTa:=_stSShapedParam.fTa;
+_stPathRef.aExecutablePath[0].fTv:=_stSShapedParam.fTv;
+_stPathRef.aExecutablePath[0].fTd:=_stSShapedParam.fTd;
+_stPathRef.aExecutablePath[0].fTj1:=_stSShapedParam.fTj1;
+_stPathRef.aExecutablePath[0].fTj2:=_stSShapedParam.fTj2;
+_stPathRef.aExecutablePath[0].fTotalTime:=_stSShapedParam.fT;
+
+
+_stPathRef.aExecutablePath[0].fStartVelo:=_fVeloStart;
+_stPathRef.aExecutablePath[0].fExpVelo:=_stSShapedParam.fVlim;
+_stPathRef.aExecutablePath[0].fEndVelo:=_fVeloEnd;
+_stPathRef.aExecutablePath[0].fAccleration:=_stSShapedParam.fA_LimAcc ;
+_stPathRef.aExecutablePath[0].fDeceleration:=_stSShapedParam.fA_LimDec;
+
+_stPathRef.aExecutablePath[0].fJmax:=_stSShapedParam.fJmax ;
+_stPathRef.aExecutablePath[0].fJmin:=_stSShapedParam.fJmin ;
+
+_stPathRef.aExecutablePath[0].fStartPos:=_fStartPos;
+_stPathRef.aExecutablePath[0].fEndPos:=_fEndPos;
+
+
+_stPathRef.bCalculateDone:=TRUE;
+stAxis.stAxisStatus.stPathRef:=_stPathRef;
+_bCalculateDone:=TRUE;
+_fTime:=0;
+_nIndex:=0;
+stAxis.stAxisStatus.nNcCycleCounter:=0;			
+				]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_SShapedPosition" Id="{b6e919a4-ad20-40eb-b16d-787032adac23}">
+      <Implementation>
+        <ST><![CDATA[stAxis.stNcTOPLC.nAxisState:=6;
+_fTime:=_fTime+fCycleTime;
+stAxis.stAxisStatus.nNcCycleCounter:=stAxis.stAxisStatus.nNcCycleCounter+1;
+
+
+_stAxis_Point:=_fbAxis.M_SShapedPosition(fTime:=_fTime , stS_Parameter:=_stSShapedParam )	;					
+
+//stAxis.stNcTOPLC.fSetPos:=_stAxis_Point.fPosition;
+//stAxis.stNcTOPLC.fActPos:=stAxis.stNcTOPLC.fSetPos;
+stAxis.stNcTOPLC.fActPos:=_stAxis_Point.fPosition;		
+//stAxis.stNcTOPLC.fSetVelo:=_stAxis_Point.fVelocity;  //04.15注释
+stAxis.stNcTOPLC.fActVelo:=_stAxis_Point.fVelocity;
+
+IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN    //04.15速度方向处理
+	 stAxis.stNcTOPLC.fSetVelo:=stAxis.stNcTOPLC.fActVelo;
+ELSE
+     stAxis.stNcTOPLC.fSetVelo:=-stAxis.stNcTOPLC.fActVelo;
+END_IF
+	
+stAxis.stNcTOPLC.fSetAcc:=_stAxis_Point.fAccleration;  //07.30
+stAxis.stNcTOPLC.fSetJerk:=_stAxis_Point.fbJerk;
+
+//stAxis.stNcTOPLC.fModuloSetPos:= ABS(stAxis.stNcTOPLC.fSetPos);
+						
+// 路径结束条件判断
+IF (_fTime>=stAxis.stAxisStatus.stPathRef.aExecutablePath[_nIndex].fTotalTime)THEN
+	 _nIndex:=_nIndex+1;
+	 _fTime:=0;
+	 IF (stAxis.stAxisStatus.stPathRef.aExecutablePath[_nIndex].fTotalTime=0) THEN
+	     _fTime:=0;
+	     _bCalculateDone:=FALSE;
+		 
+	     stAxis.stAxisStatus.stPathRef.bCalculateDone:=FALSE;
+	     stAxis.stNcTOPLC.nAxisState:=2;
+	     stAxis.stAxisStatus.nNcCycleCounter:=0;
+		 //stAxis.stNcTOPLC.fSetVelo:=0;
+		 stAxis.stNcTOPLC.fActVelo:=0;
+	     stAxis.stNcTOPLC.fSetAcc:=0;
+		 _fLastPosNC:=0;
+		 _nIndex:=0;
+		 _bSynMode:=FALSE;
+		 //_pPremover^.stAxisStatus.bSynDecActive:=false;
+		 stAxis.stAxisStatus.bSynDecActive:=FALSE;
+	 END_IF 
+END_IF]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_StopHandle" Id="{57c3d3c2-f95a-421a-8aea-a22c49572d05}">
+      <Implementation>
+        <ST><![CDATA[
+// 增加stop后 后续路径更新功能  根据前动子stop信号停止 01.17
+// 不考虑下一段有无动子
+IF (stAxis.stAxisStatus.nNcCycleCounter=0)THEN   //03.26
+	RETURN;  
+END_IF
+
+
+// 11.04重新梳理逻辑 分为当前动子执行abs指令和fork指令
+IF (stAxis.stPLCTONC.nRoadID_1=0) THEN
+	IF _pPremover^.stAxisStatus.bSynStopping AND NOT stAxis.stAxisStatus.bSynStopping AND(_pPremover^.stNcTOPLC.nAxisId<>0)THEN //10.28
+	   IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+				IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+					IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+						 IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+							A_UpdateNewTarPos();
+							//stAxis.stAxisStatus.bSynStopping:=TRUE;
+						 END_IF
+					 ELSE
+						 IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+							A_UpdateNewTarPos();
+							//stAxis.stAxisStatus.bSynStopping:=TRUE;
+						 END_IF
+					 END_IF
+				ELSE
+				    IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+					   IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+					       A_UpdateNewTarPos();
+						   //stAxis.stAxisStatus.bSynStopping:=TRUE;
+				        END_IF
+					ELSE
+						IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+					       A_UpdateNewTarPos();
+						  // stAxis.stAxisStatus.bSynStopping:=TRUE;
+				        END_IF
+					END_IF
+				END_IF
+	   ELSE
+				 IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+					 IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+						   IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet)THEN
+								
+								A_UpdateNewTarPos();
+								//stAxis.stAxisStatus.bSynStopping:=TRUE;
+						   END_IF
+					 ELSE
+						 IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet)THEN
+								
+								A_UpdateNewTarPos();
+								//stAxis.stAxisStatus.bSynStopping:=TRUE;
+						   END_IF
+					 END_IF
+				 ELSE
+					 IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+						 IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet)
+								AND (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)  THEN
+								A_UpdateNewTarPos();
+								//stAxis.stAxisStatus.bSynStopping:=TRUE;
+						  END_IF
+					 ELSE
+						 IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet)
+								AND (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)  THEN
+								A_UpdateNewTarPos();
+								//stAxis.stAxisStatus.bSynStopping:=TRUE;
+						  END_IF
+					 END_IF
+				 END_IF
+	   END_IF 
+    END_IF
+ELSE  //fork指令 分为当前road和nextroad有无动子 
+	IF (_pPremover^.stNcTOPLC.nAxisId<>0) THEN     //前置有动子
+		IF (_pPremover^.stPLCTONC.nRoadID_1<>0)AND _pPremover^.stAxisStatus.bSynStopping AND NOT stAxis.stAxisStatus.bSynStopping THEN    //前置动子执行fork指令
+			IF (stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_1)THEN
+				  IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+						IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+							IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+								IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+									A_UpdateNewTarPos();
+									//stAxis.stAxisStatus.bSynStopping:=TRUE;
+								END_IF
+							ELSE
+								IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+									A_UpdateNewTarPos();
+									//stAxis.stAxisStatus.bSynStopping:=TRUE;
+								END_IF
+							END_IF
+						ELSE
+							IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+								IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+									A_UpdateNewTarPos();
+									//stAxis.stAxisStatus.bSynStopping:=TRUE;
+								END_IF	 
+                            ELSE
+			                    IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+									A_UpdateNewTarPos();
+									//stAxis.stAxisStatus.bSynStopping:=TRUE;
+								END_IF
+							END_IF 
+						END_IF
+			      ELSE
+						IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+							IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+								IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet)THEN
+											A_UpdateNewTarPos();
+											//stAxis.stAxisStatus.bSynStopping:=TRUE;
+								END_IF
+							ELSE
+								IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet)THEN
+											A_UpdateNewTarPos();
+											//stAxis.stAxisStatus.bSynStopping:=TRUE;
+								END_IF
+							END_IF
+						ELSE
+							IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+								IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet)THEN
+										
+											A_UpdateNewTarPos();
+											//stAxis.stAxisStatus.bSynStopping:=TRUE;
+								END_IF
+						    ELSE
+								IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet)THEN
+										
+											A_UpdateNewTarPos();
+											//stAxis.stAxisStatus.bSynStopping:=TRUE;
+								END_IF
+							END_IF
+						END_IF
+				  END_IF 
+			ELSE
+				IF (stAxis.stPLCTONC.stStartPosition.nRoadID=stAxis.stPLCTONC.stEndPosition.nRoadID)THEN 
+					IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 		
+								   IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+									   IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+											 IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+												A_UpdateNewTarPos();
+												//stAxis.stAxisStatus.bSynStopping:=TRUE;
+											 END_IF
+									   ELSE
+											 IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+												A_UpdateNewTarPos();
+												//stAxis.stAxisStatus.bSynStopping:=TRUE;
+											 END_IF
+											
+									   END_IF
+								   ELSE
+									    IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+										   IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+											   A_UpdateNewTarPos();
+											   //stAxis.stAxisStatus.bSynStopping:=TRUE;
+											END_IF
+										ELSE
+											IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+											   A_UpdateNewTarPos();
+											   //stAxis.stAxisStatus.bSynStopping:=TRUE;
+											END_IF
+										END_IF
+								   END_IF
+				    ELSE
+								 IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+									 IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)  THEN
+										   IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet)THEN
+												
+												A_UpdateNewTarPos();
+												//stAxis.stAxisStatus.bSynStopping:=TRUE;  
+										   END_IF
+									 ELSE
+										  IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet)THEN
+												
+												A_UpdateNewTarPos();
+												//stAxis.stAxisStatus.bSynStopping:=TRUE;  
+										   END_IF
+									 END_IF
+								 ELSE
+									 IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)  THEN
+									     IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet)THEN
+										
+											A_UpdateNewTarPos();
+											//stAxis.stAxisStatus.bSynStopping:=TRUE;
+									     END_IF 
+									 ELSE
+										 IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet)THEN
+										
+											A_UpdateNewTarPos();
+											//stAxis.stAxisStatus.bSynStopping:=TRUE;
+									     END_IF 
+									 END_IF
+								 END_IF
+				    END_IF 
+				ELSE
+					IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+					      IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 		
+								   IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+									   IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+											 IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stPLCTONC.fRoad1_Length)<_fGapSet) THEN
+												A_UpdateNewTarPos();
+												//stAxis.stAxisStatus.bSynStopping:=TRUE;
+											 END_IF
+									   ELSE
+											IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos+stAxis.stPLCTONC.fRoad1_Length)<_fGapSet) THEN
+												A_UpdateNewTarPos();
+												//stAxis.stAxisStatus.bSynStopping:=TRUE;
+											 END_IF
+											
+									   END_IF
+								   ELSE
+									    IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+										   IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stPLCTONC.fRoad1_Length)<_fGapSet) THEN
+											   A_UpdateNewTarPos();
+											  // stAxis.stAxisStatus.bSynStopping:=TRUE;
+											END_IF
+										ELSE
+											IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos+stAxis.stPLCTONC.fRoad1_Length)<_fGapSet) THEN
+											   A_UpdateNewTarPos();
+											   //stAxis.stAxisStatus.bSynStopping:=TRUE;
+											END_IF
+										END_IF
+								   END_IF
+						  ELSE
+							   IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+									   IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+											 IF ((stAxis.stPLCTONC.fRoad1_Length+stAxis.stPLCTONC.fRoad2_Length-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+												A_UpdateNewTarPos();
+												//stAxis.stAxisStatus.bSynStopping:=TRUE;
+											 END_IF
+									   ELSE
+											 IF ((stAxis.stPLCTONC.fRoad1_Length+stAxis.stPLCTONC.fRoad2_Length-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+												A_UpdateNewTarPos();
+												//stAxis.stAxisStatus.bSynStopping:=TRUE;
+											 END_IF
+											
+									   END_IF
+							   ELSE
+									    IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+											 IF ((stAxis.stPLCTONC.fRoad1_Length+stAxis.stPLCTONC.fRoad2_Length-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+												A_UpdateNewTarPos();
+												//stAxis.stAxisStatus.bSynStopping:=TRUE;
+											 END_IF
+									    ELSE
+											 IF ((stAxis.stPLCTONC.fRoad1_Length+stAxis.stPLCTONC.fRoad2_Length-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+												A_UpdateNewTarPos();
+												//stAxis.stAxisStatus.bSynStopping:=TRUE;
+											 END_IF
+											
+										END_IF
+							   END_IF
+						  END_IF
+					ELSE
+						   IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 		
+								   IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+									   IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+											 IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+												A_UpdateNewTarPos();
+												//stAxis.stAxisStatus.bSynStopping:=TRUE;
+											 END_IF
+									   ELSE
+											IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+												A_UpdateNewTarPos();
+												//stAxis.stAxisStatus.bSynStopping:=TRUE;
+											 END_IF
+											
+									   END_IF
+								   ELSE
+									    IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+										   IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos+stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+											   A_UpdateNewTarPos();
+											   //stAxis.stAxisStatus.bSynStopping:=TRUE;
+											END_IF
+										ELSE
+											IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos+stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+											   A_UpdateNewTarPos();
+											   //stAxis.stAxisStatus.bSynStopping:=TRUE;
+											END_IF
+										END_IF
+								   END_IF
+						   ELSE
+							   IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+									   IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+											 IF ((stAxis.stPLCTONC.fRoad2_Length-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+												A_UpdateNewTarPos();
+												//stAxis.stAxisStatus.bSynStopping:=TRUE;
+											 END_IF
+									   ELSE
+											 IF ((stAxis.stPLCTONC.fRoad2_Length-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+												A_UpdateNewTarPos();
+												//stAxis.stAxisStatus.bSynStopping:=TRUE;
+											 END_IF
+											
+									   END_IF
+							   ELSE
+									    IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+											 IF ((stAxis.stPLCTONC.fRoad2_Length-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos+stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+												A_UpdateNewTarPos();
+												//stAxis.stAxisStatus.bSynStopping:=TRUE;
+											 END_IF
+									    ELSE
+											 IF ((stAxis.stPLCTONC.fRoad2_Length-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos+stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+												A_UpdateNewTarPos();
+												//stAxis.stAxisStatus.bSynStopping:=TRUE;
+											 END_IF
+										END_IF
+							   END_IF
+						   END_IF
+					END_IF 
+				
+				END_IF
+			END_IF
+		ELSE   //前置动子执行abs指令
+			IF (_pPremover^.stPLCTONC.nRoadID_1=0)AND _pPremover^.stAxisStatus.bSynStopping AND NOT stAxis.stAxisStatus.bSynStopping THEN
+				IF (stAxis.stNcTOPLC.nCuRoadID=stAxis.stPLCTONC.nRoadID_1)THEN   //
+						   IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+								IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+									IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+										IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+											A_UpdateNewTarPos();
+											//stAxis.stAxisStatus.bSynStopping:=TRUE;
+										END_IF
+									ELSE
+										IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+											A_UpdateNewTarPos();
+											//stAxis.stAxisStatus.bSynStopping:=TRUE;
+										END_IF
+									END_IF
+								ELSE
+									IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+										IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+											A_UpdateNewTarPos();
+											//stAxis.stAxisStatus.bSynStopping:=TRUE;
+										END_IF	 
+									ELSE
+										IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+											A_UpdateNewTarPos();
+											//stAxis.stAxisStatus.bSynStopping:=TRUE;
+										END_IF
+									END_IF 
+								END_IF
+						   ELSE
+								IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+									IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+										IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet)THEN
+													A_UpdateNewTarPos();
+													//stAxis.stAxisStatus.bSynStopping:=TRUE;
+										END_IF
+									ELSE
+										IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet)THEN
+													A_UpdateNewTarPos();
+													//stAxis.stAxisStatus.bSynStopping:=TRUE;
+										END_IF
+									END_IF
+								ELSE
+									IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+										IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet)THEN
+												
+													A_UpdateNewTarPos();
+													//stAxis.stAxisStatus.bSynStopping:=TRUE;
+										END_IF
+									ELSE
+										IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet)THEN
+												
+													A_UpdateNewTarPos();
+													//stAxis.stAxisStatus.bSynStopping:=TRUE;
+										END_IF
+									END_IF
+								END_IF
+						   END_IF 
+				ELSE
+						   IF (stAxis.stPLCTONC.stStartPosition.nRoadID=stAxis.stPLCTONC.stEndPosition.nRoadID)THEN 
+								IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 		
+											   IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+												   IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+														 IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+															A_UpdateNewTarPos();
+															//stAxis.stAxisStatus.bSynStopping:=TRUE;
+														 END_IF
+												   ELSE
+														IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+															A_UpdateNewTarPos();
+															//stAxis.stAxisStatus.bSynStopping:=TRUE;
+														 END_IF
+														
+													END_IF
+											   ELSE
+													IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+													   IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+														   A_UpdateNewTarPos();
+														   //stAxis.stAxisStatus.bSynStopping:=TRUE;
+														END_IF
+													ELSE
+														IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+														   A_UpdateNewTarPos();
+														   //stAxis.stAxisStatus.bSynStopping:=TRUE;
+														END_IF
+													END_IF
+											   END_IF
+								ELSE
+											 IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+												 IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)  THEN
+													   IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet)THEN
+															
+															A_UpdateNewTarPos();
+															//stAxis.stAxisStatus.bSynStopping:=TRUE;  
+													   END_IF
+												  ELSE
+													  IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet)THEN
+															
+															A_UpdateNewTarPos();
+															//stAxis.stAxisStatus.bSynStopping:=TRUE;  
+													   END_IF
+												  END_IF
+											 ELSE
+												 IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)  THEN
+													 IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet)THEN
+													
+														A_UpdateNewTarPos();
+														//stAxis.stAxisStatus.bSynStopping:=TRUE;
+													 END_IF 
+												 ELSE
+													 IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet)THEN
+													
+														A_UpdateNewTarPos();
+														//stAxis.stAxisStatus.bSynStopping:=TRUE;
+													 END_IF 
+												 END_IF
+											 END_IF
+								END_IF 
+							ELSE
+								IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+									  IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 		
+											   IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+												   IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+														 IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stPLCTONC.fRoad1_Length)<_fGapSet) THEN
+															A_UpdateNewTarPos();
+															//stAxis.stAxisStatus.bSynStopping:=TRUE;
+														 END_IF
+												   ELSE
+														IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos+stAxis.stPLCTONC.fRoad1_Length)<_fGapSet) THEN
+															A_UpdateNewTarPos();
+															//stAxis.stAxisStatus.bSynStopping:=TRUE;
+														 END_IF
+														
+												   END_IF
+											   ELSE
+													IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+													   IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stPLCTONC.fRoad1_Length)<_fGapSet) THEN
+														   A_UpdateNewTarPos();
+														  // stAxis.stAxisStatus.bSynStopping:=TRUE;
+														END_IF
+													ELSE
+														IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos+stAxis.stPLCTONC.fRoad1_Length)<_fGapSet) THEN
+														   A_UpdateNewTarPos();
+														   //stAxis.stAxisStatus.bSynStopping:=TRUE;
+														END_IF
+													END_IF
+											   END_IF
+									  ELSE
+										   IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+												    IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+														 IF ((stAxis.stPLCTONC.fRoad1_Length+stAxis.stPLCTONC.fRoad2_Length-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+															A_UpdateNewTarPos();
+															//stAxis.stAxisStatus.bSynStopping:=TRUE;
+														 END_IF
+													ELSE
+														 IF ((stAxis.stPLCTONC.fRoad1_Length+stAxis.stPLCTONC.fRoad2_Length-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+															A_UpdateNewTarPos();
+															//stAxis.stAxisStatus.bSynStopping:=TRUE;
+														 END_IF
+														
+													END_IF
+										   ELSE
+													IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+														 IF ((stAxis.stPLCTONC.fRoad1_Length+stAxis.stPLCTONC.fRoad2_Length-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+															A_UpdateNewTarPos();
+															//stAxis.stAxisStatus.bSynStopping:=TRUE;
+														 END_IF
+													ELSE
+														 IF ((stAxis.stPLCTONC.fRoad1_Length+stAxis.stPLCTONC.fRoad2_Length-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+															A_UpdateNewTarPos();
+															//stAxis.stAxisStatus.bSynStopping:=TRUE;
+														 END_IF
+														
+													END_IF
+										   END_IF
+									  END_IF
+								ELSE
+									   IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 		
+											   IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+												   IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+														 IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+															A_UpdateNewTarPos();
+													     END_IF
+	
+												    ELSE
+														IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+															A_UpdateNewTarPos();
+															//stAxis.stAxisStatus.bSynStopping:=TRUE;
+														END_IF
+														
+													END_IF
+											   ELSE
+													IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+													   IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos+stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+														   A_UpdateNewTarPos();
+														   //stAxis.stAxisStatus.bSynStopping:=TRUE;
+														END_IF
+													
+													ELSE
+														IF ((_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos+stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+														   A_UpdateNewTarPos();
+														   //stAxis.stAxisStatus.bSynStopping:=TRUE;
+														END_IF
+													END_IF
+											   END_IF
+									   ELSE
+										   IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+												   IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+														 IF ((stAxis.stPLCTONC.fRoad2_Length-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+															A_UpdateNewTarPos();
+															//stAxis.stAxisStatus.bSynStopping:=TRUE;
+														 END_IF
+												   ELSE
+														 IF ((stAxis.stPLCTONC.fRoad2_Length-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+															A_UpdateNewTarPos();
+															//stAxis.stAxisStatus.bSynStopping:=TRUE;
+														 END_IF
+														
+												   END_IF
+										   ELSE
+													IF (stAxis.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+														 IF ((stAxis.stPLCTONC.fRoad2_Length-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos+stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+															A_UpdateNewTarPos();
+															//stAxis.stAxisStatus.bSynStopping:=TRUE;
+														 END_IF
+													ELSE
+														 IF ((stAxis.stPLCTONC.fRoad2_Length-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos+stAxis.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos)<_fGapSet) THEN
+															A_UpdateNewTarPos();
+															//stAxis.stAxisStatus.bSynStopping:=TRUE;
+														 END_IF
+													END_IF
+										   END_IF
+									   END_IF
+								END_IF 
+				            END_IF
+				END_IF  
+					
+				//END_IF
+			END_IF
+	    END_IF
+	ELSE       //nextroad前置有动子 
+        //IF (_pNextRoadPremover^.stNcTOPLC.nAxisId<>0)AND (stAxis.stNcTOPLC.nCuRoadID<>_pNextRoadPremover^.stNcTOPLC.nCuRoadID)THEN 
+		IF (_pNextRoadPremover^.stNcTOPLC.nAxisId<>0)AND (stAxis.stNcTOPLC.nCuRoadID<>_pNextRoadPremover^.stNcTOPLC.nCuRoadID) 
+           AND   _pNextRoadPremover^.stAxisStatus.bSynStopping AND NOT stAxis.stAxisStatus.bSynStopping THEN
+             IF (_pNextRoadPremover^.stPLCTONC.stStartPosition.nRoadID<>_pNextRoadPremover^.stPLCTONC.stEndPosition.nRoadID)THEN
+				  IF (_pNextRoadPremover^.stPLCTONC.stStartPosition.nRoadID=stAxis.stPLCTONC.stStartPosition.nRoadID)THEN  //起点road相同
+					   IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+						   IF ((_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+								A_NextPathUpdateNewTarPos();
+								//stAxis.stAxisStatus.bSynStopping:=TRUE;
+						   END_IF
+					   ELSE
+						   IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet)THEN	
+								A_NextPathUpdateNewTarPos();
+								//stAxis.stAxisStatus.bSynStopping:=TRUE;
+						   END_IF
+					   END_IF
+				  ELSE
+					  IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+						   IF NOT stAxis.stPLCTONC.bRoadDirection  THEN
+							   IF ((_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stPLCTONC.fRoad1_Length-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+								   A_NextPathUpdateNewTarPos();
+								   //stAxis.stAxisStatus.bSynStopping:=TRUE;
+						       END_IF
+				
+						   ELSE
+							   IF ((stAxis.stPLCTONC.fRoad2_Length-_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stPLCTONC.fRoad1_Length-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+									A_NextPathUpdateNewTarPos();
+									//stAxis.stAxisStatus.bSynStopping:=TRUE;
+								END_IF
+						   END_IF
+					  ELSE
+						   IF NOT stAxis.stPLCTONC.bRoadDirection  THEN
+								IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet)THEN		
+									A_NextPathUpdateNewTarPos();
+									//stAxis.stAxisStatus.bSynStopping:=TRUE;
+								END_IF
+						   ELSE
+								IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stPLCTONC.fRoad2_Length-_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet)THEN		
+									A_NextPathUpdateNewTarPos();
+									//stAxis.stAxisStatus.bSynStopping:=TRUE;
+								END_IF
+							
+						   END_IF
+					  END_IF
+				  END_IF
+			 ELSE
+					   IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+						   IF NOT stAxis.stPLCTONC.bRoadDirection  THEN
+								IF ((_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stPLCTONC.fRoad1_Length-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+									A_NextPathUpdateNewTarPos();
+									//stAxis.stAxisStatus.bSynStopping:=TRUE;
+								END_IF
+						   ELSE
+								IF ((stAxis.stPLCTONC.fRoad2_Length-_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stPLCTONC.fRoad1_Length-stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet) THEN
+									A_NextPathUpdateNewTarPos();
+									//stAxis.stAxisStatus.bSynStopping:=TRUE;
+								END_IF
+						   END_IF
+					   ELSE   //负向
+						   IF NOT stAxis.stPLCTONC.bRoadDirection  THEN
+								IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet)THEN		
+									A_NextPathUpdateNewTarPos();
+									//stAxis.stAxisStatus.bSynStopping:=TRUE;
+								END_IF
+							ELSE
+								IF ((stAxis.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos+stAxis.stPLCTONC.fRoad2_Length-_pNextRoadPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos)<_fGapSet)THEN		
+									A_NextPathUpdateNewTarPos();
+									//stAxis.stAxisStatus.bSynStopping:=TRUE;
+								END_IF
+							
+							END_IF
+					   END_IF  
+			 END_IF
+			  
+		END_IF
+    END_IF   
+
+END_IF
+
+
+A_EStop();   //04.07注释
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_TShaped" Id="{4139f278-0348-4b3e-b6ec-e75e8e684762}">
+      <Implementation>
+        <ST><![CDATA[_fStartPos:=stAxis.stNcTOPLC.fActPos;
+_stPathRef:=_stNoPathRef;
+
+
+IF (_fDistance>0)THEN
+	_stTimeInfo:=_fbAxis.M_TShaped(
+					fVeloStart:=_fVeloStart , 
+					fVeloEnd:= _fVeloEnd, 
+					fTargetVelo:=_fTargetVelo , 
+					fDistance:=_fDistance, 
+					fAccleration:=_fAcc , 
+					fDeceleration:=_fDec );
+ELSE
+	RETURN ;
+END_IF 
+
+_stPathRef._nPathSegmentNum:=1;
+_stPathRef.aExecutablePath[0].fTa:=_stTimeInfo.fTa;
+_stPathRef.aExecutablePath[0].fTv:=_stTimeInfo.fTv;
+_stPathRef.aExecutablePath[0].fTd:=_stTimeInfo.fTd;
+_stPathRef.aExecutablePath[0].fTotalTime:=_stTimeInfo.fT3;
+_stPathRef.aExecutablePath[0].fStartVelo:=_fVeloStart;
+_stPathRef.aExecutablePath[0].fExpVelo:=_fTargetVelo;
+_stPathRef.aExecutablePath[0].fEndVelo:=_fVeloEnd;
+_stPathRef.aExecutablePath[0].fAccleration:=_fAcc ;
+_stPathRef.aExecutablePath[0].fDeceleration:=_fDec;
+
+
+_stPathRef.aExecutablePath[0].fStartPos:=_fStartPos;
+IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+    _stPathRef.aExecutablePath[0].fEndPos:=_fDistance+_fStartPos;
+	_eSetDirection:=E_Direction.DIRECTION_POSITIVE;
+	//04.08 终点位置转换
+	IF (stAxis.stPLCTONC.nRoadID_1<>0) AND (stAxis.stPLCTONC.nRoadID_2<>0)THEN   
+	    IF (stAxis.stPLCTONC.stStartPosition.nRoadID=stAxis.stPLCTONC.nRoadID_2)THEN   
+				 IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+			         _stPathRef.aExecutablePath[0].fEndPos:=_fDistance+_fStartPos;
+					 _eSetDirection:=E_Direction.DIRECTION_POSITIVE;
+				 ELSE
+					 _stPathRef.aExecutablePath[0].fEndPos:=_fStartPos-_fDistance;
+					 _eSetDirection:=E_Direction.DIRECTION_NEGATIVE;
+				 END_IF
+		 END_IF
+	END_IF 
+ELSE
+	_stPathRef.aExecutablePath[0].fEndPos:=_fStartPos-_fDistance;
+	_eSetDirection:=E_Direction.DIRECTION_NEGATIVE;
+	//04.28  终点位置转换
+	IF (stAxis.stPLCTONC.nRoadID_1<>0) AND (stAxis.stPLCTONC.nRoadID_2<>0)THEN   
+	    IF (stAxis.stPLCTONC.stStartPosition.nRoadID=stAxis.stPLCTONC.nRoadID_2)THEN   
+				 IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+			         _stPathRef.aExecutablePath[0].fEndPos:=_fDistance+_fStartPos;
+					 _eSetDirection:=E_Direction.DIRECTION_POSITIVE;
+				 ELSE
+					 _stPathRef.aExecutablePath[0].fEndPos:=_fStartPos-_fDistance;
+					 _eSetDirection:=E_Direction.DIRECTION_NEGATIVE;
+				 END_IF
+		 END_IF
+	END_IF 
+END_IF
+
+_stPathRef.aSafePath:=_stPathRef.aExecutablePath;
+IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+		
+   _stPathRef.aSafePath[0].fStartPos:=_stPathRef.aExecutablePath[0].fStartPos-_fGap;
+   _stPathRef.aSafePath[0].fEndPos:=_stPathRef.aExecutablePath[0].fEndPos-_fGap;
+   
+   //04.08 终点位置转换
+	IF (stAxis.stPLCTONC.nRoadID_1<>0) AND (stAxis.stPLCTONC.nRoadID_2<>0)THEN   
+	    IF (stAxis.stPLCTONC.stStartPosition.nRoadID=stAxis.stPLCTONC.nRoadID_2)THEN   
+				 IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+			         _stPathRef.aSafePath[0].fStartPos:=_stPathRef.aExecutablePath[0].fStartPos-_fGap;
+                     _stPathRef.aSafePath[0].fEndPos:=_stPathRef.aExecutablePath[0].fEndPos-_fGap;
+					 
+				 ELSE
+					 _stPathRef.aSafePath[0].fStartPos:=_stPathRef.aExecutablePath[0].fStartPos+_fGap;
+                      _stPathRef.aSafePath[0].fEndPos:=_stPathRef.aExecutablePath[0].fEndPos+_fGap;
+					  
+				 END_IF
+		 END_IF
+	END_IF 
+ELSE 
+   _stPathRef.aSafePath[0].fStartPos:=_stPathRef.aExecutablePath[0].fStartPos+_fGap;
+   _stPathRef.aSafePath[0].fEndPos:=_stPathRef.aExecutablePath[0].fEndPos+_fGap;
+   //04.08 终点位置转换
+	IF (stAxis.stPLCTONC.nRoadID_1<>0) AND (stAxis.stPLCTONC.nRoadID_2<>0)THEN   
+	    IF (stAxis.stPLCTONC.stStartPosition.nRoadID=stAxis.stPLCTONC.nRoadID_2)THEN   
+				 IF NOT stAxis.stPLCTONC.bRoadDirection  THEN   //正向 
+			         _stPathRef.aSafePath[0].fStartPos:=_stPathRef.aExecutablePath[0].fStartPos-_fGap;
+                     _stPathRef.aSafePath[0].fEndPos:=_stPathRef.aExecutablePath[0].fEndPos-_fGap;
+					
+				 ELSE
+					 _stPathRef.aSafePath[0].fStartPos:=_stPathRef.aExecutablePath[0].fStartPos+_fGap;
+                      _stPathRef.aSafePath[0].fEndPos:=_stPathRef.aExecutablePath[0].fEndPos+_fGap;
+					  
+				 END_IF
+		 END_IF
+	END_IF 
+END_IF
+
+_stPathRef.fTargetVelocity:=_fTargetVelo;
+
+
+IF (_nPathSegment=2)THEN 
+	IF (_fDistance_2>0)THEN
+		_stTimeInfo_2:=_fbAxis.M_TShaped(
+						fVeloStart:=_fVeloStart_2 , 
+						fVeloEnd:= _fVeloEnd_2, 
+						fTargetVelo:=_fTargetVelo_2 , 
+						fDistance:=_fDistance_2, 
+						fAccleration:=_fAcc_2 , 
+						fDeceleration:=_fDec_2 );
+	END_IF 
+	
+	_stPathRef._nPathSegmentNum:=2;
+	_stPathRef.aExecutablePath[1].fTa:=_stTimeInfo_2.fTa;
+	_stPathRef.aExecutablePath[1].fTv:=_stTimeInfo_2.fTv;
+	_stPathRef.aExecutablePath[1].fTd:=_stTimeInfo_2.fTd;
+	_stPathRef.aExecutablePath[1].fTotalTime:=_stTimeInfo_2.fT3;
+	_stPathRef.aExecutablePath[1].fStartVelo:=_fVeloStart_2;
+	_stPathRef.aExecutablePath[1].fExpVelo:=_fTargetVelo_2;
+	_stPathRef.aExecutablePath[1].fEndVelo:= _fVeloEnd_2;
+	_stPathRef.aExecutablePath[1].fAccleration:=_fAcc_2 ;
+	_stPathRef.aExecutablePath[1].fDeceleration:=_fDec_2;
+	_stPathRef.aExecutablePath[1].fStartPos:=_stPathRef.aExecutablePath[0].fEndPos;
+	IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+		_stPathRef.aExecutablePath[1].fEndPos:=_fDistance_2+_stPathRef.aExecutablePath[1].fStartPos;
+	ELSE
+		_stPathRef.aExecutablePath[1].fEndPos:=_stPathRef.aExecutablePath[1].fStartPos-_fDistance_2;
+	END_IF
+	
+	_stPathRef.aSafePath:=_stPathRef.aExecutablePath;
+	IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+			
+	   _stPathRef.aSafePath[1].fStartPos:=_stPathRef.aExecutablePath[1].fStartPos-_fGap;
+	   _stPathRef.aSafePath[1].fEndPos:=_stPathRef.aExecutablePath[1].fEndPos-_fGap;
+	ELSE 
+	   _stPathRef.aSafePath[1].fStartPos:=_stPathRef.aExecutablePath[1].fStartPos+_fGap;
+	   _stPathRef.aSafePath[1].fEndPos:=_stPathRef.aExecutablePath[1].fEndPos+_fGap;
+	END_IF
+	
+	_stPathRef.fTargetVelocity:=_fTargetVelo;
+    _stPathRef.fDealtInPos:=  _fPosIn;       //11.29
+END_IF
+_stPathRef.fGap:=_fGap;
+_stPathRef.fSetGap:=stAxis.stAxisStatus.stPathRef.fSetGap;
+
+_stPathRef.bCalculateDone:=TRUE;
+stAxis.stAxisStatus.stPathRef:=_stPathRef;
+
+_bCalculateDone:=TRUE;
+_fTime:=0;
+_nIndex:=0;
+stAxis.stAxisStatus.nNcCycleCounter:=0;
+IF _bEstopping THEN    //03.03
+	stAxis.stAxisStatus.bEmStopping:=TRUE;
+END_IF
+
+_stLastAxis_Point.fPosition:=stAxis.stNcTOPLC.fActPos;//03.14
+
+IF GVL_MC.cDebug  THEN
+		//_sMessage:=FC_StrContact(stAxis,'NC generate path');
+	    // ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+	_sMessage2:=FC_StrContactEx(stAxis,'NC cla path');
+	 ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage2, '');
+	;	 
+END_IF]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_TShapedPosition" Id="{45987908-60e2-4541-9d8e-0ee9cc688680}">
+      <Implementation>
+        <ST><![CDATA[ //_nSysType:=stAxis.stPLCTONC.nSysType;   //01.13
+ _fRoad1_Lenth:=stAxis.stPLCTONC.fRoad1_Length;
+ _fRoad2_Lenth:=stAxis.stPLCTONC.fRoad2_Length;
+ 
+stAxis.stNcTOPLC.nAxisState:=6;
+_fTime:=_fTime+fCycleTime;
+stAxis.stAxisStatus.nNcCycleCounter:=stAxis.stAxisStatus.nNcCycleCounter+1;
+
+_stAxis_Point:=_fbAxis.M_GetPosition(
+						fTime:=_fTime , 
+						fTa:=stAxis.stAxisStatus.stPathRef.aExecutablePath[_nIndex].fTa , 
+						fTv:=stAxis.stAxisStatus.stPathRef.aExecutablePath[_nIndex].fTv , 
+						fTd:=stAxis.stAxisStatus.stPathRef.aExecutablePath[_nIndex].fTd , 
+						fVeloStart:=stAxis.stAxisStatus.stPathRef.aExecutablePath[_nIndex].fStartVelo , 
+						fVeloEnd:=stAxis.stAxisStatus.stPathRef.aExecutablePath[_nIndex].fEndVelo , 
+						fTargetVelo:=stAxis.stAxisStatus.stPathRef.aExecutablePath[_nIndex].fExpVelo , 
+						fAccleration:=stAxis.stAxisStatus.stPathRef.aExecutablePath[_nIndex].fAccleration , 
+						fDeceleration:=stAxis.stAxisStatus.stPathRef.aExecutablePath[_nIndex].fDeceleration ,   //02.21
+						fInitalPos:=stAxis.stAxisStatus.stPathRef.aExecutablePath[_nIndex].fStartPos ,
+						eDirection:= _eSetDirection);
+						//eDirection:= _eDirection);  //04.08
+
+
+//  实时位置、速度处理
+IF (_nSysType=1)OR(_nSysType=4)	THEN    //接驳线和分叉线
+	IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+		IF (stAxis.stPLCTONC.stStartPosition.nRoadID<>stAxis.stPLCTONC.stEndPosition.nRoadID)THEN    //id不相同处理
+			IF (_stAxis_Point.fPosition<_fRoad1_Lenth)THEN  //04.16
+				//stAxis.stNcTOPLC.fActPos:=floor(_stAxis_Point.fPosition);  //04.19
+				stAxis.stNcTOPLC.fActPos:=LTRUNC(_stAxis_Point.fPosition);   //04.19
+				stAxis.stNcTOPLC.nCuRoadID:=stAxis.stPLCTONC.nRoadID_1;
+			ELSE
+				IF NOT stAxis.stPLCTONC.bRoadDirection THEN 
+				    stAxis.stNcTOPLC.fActPos:=LTRUNC(FC_TransformPosition(fOffset:=-_fRoad1_Lenth , fPosition:=_stAxis_Point.fPosition ));
+				ELSE
+					_fPosTemp:=FC_TransformPosition(fOffset:=-_fRoad1_Lenth , fPosition:=_stAxis_Point.fPosition );
+					 stAxis.stNcTOPLC.fActPos:= LTRUNC(_fRoad2_Lenth-_fPosTemp);
+				END_IF
+				
+				stAxis.stNcTOPLC.nCuRoadID:=stAxis.stPLCTONC.nRoadID_2;
+			END_IF
+			stAxis.stNcTOPLC.fSetVelo:=_stAxis_Point.fVelocity;  
+			stAxis.stNcTOPLC.fActVelo:=_stAxis_Point.fVelocity;
+		ELSE  //ID 相同
+			IF (stAxis.stPLCTONC.stEndPosition.nRoadID=stAxis.stPLCTONC.nRoadID_1)THEN   //03.05
+			    stAxis.stNcTOPLC.fActPos:=LTRUNC(_stAxis_Point.fPosition);
+			    stAxis.stNcTOPLC.nCuRoadID:=stAxis.stPLCTONC.nRoadID_1;
+			ELSE 
+				
+				stAxis.stNcTOPLC.fActPos:=LTRUNC(_stAxis_Point.fPosition);   //04.07
+                stAxis.stNcTOPLC.nCuRoadID:=stAxis.stPLCTONC.nRoadID_2;
+			END_IF
+		    stAxis.stNcTOPLC.fSetVelo:=_stAxis_Point.fVelocity;  
+			stAxis.stNcTOPLC.fActVelo:=_stAxis_Point.fVelocity;
+		END_IF
+	ELSE
+		IF (stAxis.stPLCTONC.stStartPosition.nRoadID<>stAxis.stPLCTONC.stEndPosition.nRoadID)THEN    //id不相同处理
+			IF (_stAxis_Point.fPosition>0)THEN  //04.16
+				stAxis.stNcTOPLC.nCuRoadID:=stAxis.stPLCTONC.nRoadID_1;
+				stAxis.stNcTOPLC.fActPos:=LTRUNC(_stAxis_Point.fPosition);
+		
+			ELSE
+				IF NOT stAxis.stPLCTONC.bRoadDirection THEN     //正向
+					stAxis.stNcTOPLC.fActPos:=LTRUNC(ABS(_stAxis_Point.fPosition));
+				ELSE
+					_fPosTemp:=ABS(_stAxis_Point.fPosition);
+					stAxis.stNcTOPLC.fActPos:= LTRUNC(_fRoad2_Lenth-_fPosTemp);
+				END_IF
+				stAxis.stNcTOPLC.nCuRoadID:=stAxis.stPLCTONC.nRoadID_2;
+			END_IF
+            stAxis.stNcTOPLC.fSetVelo:=_stAxis_Point.fVelocity;  
+			stAxis.stNcTOPLC.fActVelo:=_stAxis_Point.fVelocity;
+		ELSE
+			IF (stAxis.stPLCTONC.stEndPosition.nRoadID=stAxis.stPLCTONC.nRoadID_1)THEN 
+				stAxis.stNcTOPLC.fActPos:=LTRUNC(_stAxis_Point.fPosition);
+				stAxis.stNcTOPLC.nCuRoadID:=stAxis.stPLCTONC.nRoadID_1;
+			ELSE
+				stAxis.stNcTOPLC.fActPos:=LTRUNC(_stAxis_Point.fPosition);
+                stAxis.stNcTOPLC.nCuRoadID:=stAxis.stPLCTONC.nRoadID_2;
+			END_IF
+		    stAxis.stNcTOPLC.fSetVelo:=_stAxis_Point.fVelocity;  
+			stAxis.stNcTOPLC.fActVelo:=_stAxis_Point.fVelocity;
+		END_IF
+	
+	END_IF
+ELSE
+    stAxis.stNcTOPLC.fDealtPos:=ABS(LTRUNC(_stAxis_Point.fPosition)-stAxis.stNcTOPLC.fActPos);    //01.13
+	stAxis.stNcTOPLC.fActPos:=LTRUNC(_stAxis_Point.fPosition);
+	//stAxis.stNcTOPLC.fSetVelo:=floor(_stAxis_Point.fVelocity);  //04.15注释
+	stAxis.stNcTOPLC.fActVelo:=LTRUNC(_stAxis_Point.fVelocity);
+	IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN    //04.15速度方向处理
+	    stAxis.stNcTOPLC.fSetVelo:=stAxis.stNcTOPLC.fActVelo;
+	ELSE
+		stAxis.stNcTOPLC.fSetVelo:=-stAxis.stNcTOPLC.fActVelo;
+	END_IF
+	
+END_IF
+
+
+// 路径结束条件判断
+IF (_fTime>=stAxis.stAxisStatus.stPathRef.aExecutablePath[_nIndex].fTotalTime)THEN
+	 _nIndex:=_nIndex+1;
+	 _fTime:=0;
+	 IF (stAxis.stAxisStatus.stPathRef.aExecutablePath[_nIndex].fTotalTime=0) THEN
+	     _fTime:=0;
+	     _bCalculateDone:=FALSE;
+	     stAxis.stAxisStatus.stPathRef.bCalculateDone:=FALSE;
+	     stAxis.stNcTOPLC.nAxisState:=2;
+	     stAxis.stAxisStatus.nNcCycleCounter:=0;
+		 IF (stAxis.stPLCTONC.stEndPosition.fVelocity=0)THEN   //12.03
+		    stAxis.stNcTOPLC.fSetVelo:=0;
+		    stAxis.stNcTOPLC.fActVelo:=0;
+	         stAxis.stNcTOPLC.fSetAcc:=0;
+		 END_IF
+		 _fLastPosNC:=0;
+		 _nIndex:=0;
+		 _bSynMode:=FALSE;
+		_bEstopping:=FALSE; //03.19
+		 stAxis.stAxisStatus.bSynDecActive:=FALSE;
+		 stAxis.stNcTOPLC.fDealtPos:=0;
+	 END_IF 
+END_IF
+
+ stAxis.stAxisStatus.nSegIndex:=INT_TO_UDINT(_nIndex);
+ 
+ _fLastPtyPos:=stAxis.stCodToNCParam.fActualPos;
+ ]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_UpdateNewTarPos" Id="{224b343e-37bc-49b3-ac49-2b05326ffb6c}">
+      <Implementation>
+        <ST><![CDATA[_fAcc:=stAxis.stPLCTONC.stEndPosition.fAccleration;
+_fDec:=stAxis.stPLCTONC.stEndPosition.fDeceleration;
+//根据指令分类
+//IF (stAxis.stPLCTONC.eCommand<>E_Command.COMMAND_ABSOLUTEFORK) THEN	
+IF (stAxis.stPLCTONC.nRoadID_1=0)THEN
+	IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+		IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+		    _fUpNewPos:=_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-_fGapSet-stAxis.stNcTOPLC.fActPos;
+		ELSE
+			_fUpNewPos:=_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-_fGapSet-stAxis.stNcTOPLC.fActPos;
+		END_IF
+	ELSE
+		IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+		    _fUpNewPos:=stAxis.stNcTOPLC.fActPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-_fGapSet;
+		ELSE
+			_fUpNewPos:=stAxis.stNcTOPLC.fActPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-_fGapSet;
+		END_IF
+	END_IF
+ELSE   //fork指令 根据前动子的edpos id 和当前动子roadid分类讨论
+	
+	IF (_eDirection=E_Direction.DIRECTION_POSITIVE)THEN
+		IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+		    _fUpNewPos:=_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-_fGapSet-stAxis.stNcTOPLC.fActPos;
+		ELSE
+			_fUpNewPos:=_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-_fGapSet-stAxis.stNcTOPLC.fActPos;
+		END_IF
+	ELSE
+		IF (_pPremover^.stAxisStatus.stPathRef._nPathSegmentNum=1)THEN
+		    _fUpNewPos:=stAxis.stNcTOPLC.fActPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[0].fEndPos-_fGapSet;
+		ELSE
+			_fUpNewPos:=stAxis.stNcTOPLC.fActPos-_pPremover^.stAxisStatus.stPathRef.aExecutablePath[1].fEndPos-_fGapSet;
+		END_IF
+	END_IF
+     stAxis.stPLCTONC.stStartPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+	 stAxis.stPLCTONC.stEndPosition.nRoadID:=stAxis.stNcTOPLC.nCuRoadID;
+END_IF
+	
+_fDistance:=_fUpNewPos;
+//_fTargetVelo:=stAxis.stNcTOPLC.fActVelo;  //11.1
+// 11.01 停止计算距离，根据距离设置目标速度
+IF _fDec<>0 THEN  //11.01 
+   _fLastPosDeat:=0.5*stAxis.stNcTOPLC.fActVelo*stAxis.stNcTOPLC.fActVelo/_fDec;
+END_IF 
+IF LTRUNC(_fDistance)<=_fLastPosDeat THEN
+	_fTargetVelo:=stAxis.stNcTOPLC.fActVelo;
+ELSE
+	_fTargetVelo:=stAxis.stPLCTONC.fTargetVelocity;
+END_IF
+
+_fVeloStart:=stAxis.stNcTOPLC.fActVelo;
+_fVeloEnd:=0;
+_bEnable:=TRUE;
+_nPathSegment:=1;
+stAxis.stAxisStatus.bSynStopping:=TRUE;  //10.28
+IF GVL_MC.cDebug  THEN
+	_sMessage:=FC_StrContact(stAxis,'SynStoping path');
+	 ADSLOGSTR(ADSLOG_MSGTYPE_HINT, _sMessage, '');
+END_IF
+
+]]></ST>
+      </Implementation>
+    </Action>
+    <LineIds Name="FTS_NCGenerator">
+      <LineId Id="3" Count="79" />
+      <LineId Id="150" Count="0" />
+      <LineId Id="371" Count="12" />
+      <LineId Id="385" Count="6" />
+      <LineId Id="393" Count="6" />
+      <LineId Id="401" Count="38" />
+      <LineId Id="986" Count="0" />
+      <LineId Id="440" Count="0" />
+      <LineId Id="996" Count="0" />
+      <LineId Id="1000" Count="0" />
+      <LineId Id="997" Count="0" />
+      <LineId Id="1006" Count="14" />
+      <LineId Id="998" Count="0" />
+      <LineId Id="1003" Count="0" />
+      <LineId Id="999" Count="0" />
+      <LineId Id="984" Count="0" />
+      <LineId Id="441" Count="2" />
+      <LineId Id="370" Count="0" />
+      <LineId Id="444" Count="0" />
+      <LineId Id="151" Count="40" />
+      <LineId Id="617" Count="0" />
+      <LineId Id="616" Count="0" />
+      <LineId Id="192" Count="6" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_AccSegmengt">
+      <LineId Id="2" Count="162" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_CatchUp">
+      <LineId Id="2" Count="99" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_ContantVeloPosition">
+      <LineId Id="2" Count="7" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_ConVeloSegment">
+      <LineId Id="2" Count="54" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_DecSegment">
+      <LineId Id="2" Count="58" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_DecSegment_2">
+      <LineId Id="2" Count="58" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_EStop">
+      <LineId Id="502" Count="0" />
+      <LineId Id="505" Count="0" />
+      <LineId Id="524" Count="0" />
+      <LineId Id="506" Count="1" />
+      <LineId Id="540" Count="0" />
+      <LineId Id="543" Count="0" />
+      <LineId Id="555" Count="2" />
+      <LineId Id="572" Count="3" />
+      <LineId Id="566" Count="0" />
+      <LineId Id="576" Count="1" />
+      <LineId Id="579" Count="1" />
+      <LineId Id="578" Count="0" />
+      <LineId Id="558" Count="1" />
+      <LineId Id="594" Count="0" />
+      <LineId Id="560" Count="0" />
+      <LineId Id="595" Count="0" />
+      <LineId Id="599" Count="1" />
+      <LineId Id="596" Count="0" />
+      <LineId Id="602" Count="3" />
+      <LineId Id="609" Count="3" />
+      <LineId Id="606" Count="0" />
+      <LineId Id="608" Count="0" />
+      <LineId Id="607" Count="0" />
+      <LineId Id="597" Count="0" />
+      <LineId Id="601" Count="0" />
+      <LineId Id="582" Count="8" />
+      <LineId Id="581" Count="0" />
+      <LineId Id="561" Count="1" />
+      <LineId Id="591" Count="1" />
+      <LineId Id="544" Count="0" />
+      <LineId Id="554" Count="0" />
+      <LineId Id="547" Count="0" />
+      <LineId Id="545" Count="0" />
+      <LineId Id="504" Count="0" />
+      <LineId Id="169" Count="2" />
+      <LineId Id="593" Count="0" />
+      <LineId Id="172" Count="0" />
+      <LineId Id="174" Count="1" />
+      <LineId Id="508" Count="0" />
+      <LineId Id="177" Count="1" />
+      <LineId Id="180" Count="65" />
+      <LineId Id="250" Count="0" />
+      <LineId Id="509" Count="1" />
+      <LineId Id="251" Count="15" />
+      <LineId Id="512" Count="0" />
+      <LineId Id="268" Count="0" />
+      <LineId Id="271" Count="0" />
+      <LineId Id="273" Count="39" />
+      <LineId Id="318" Count="1" />
+      <LineId Id="516" Count="0" />
+      <LineId Id="513" Count="0" />
+      <LineId Id="321" Count="15" />
+      <LineId Id="338" Count="2" />
+      <LineId Id="517" Count="0" />
+      <LineId Id="345" Count="63" />
+      <LineId Id="525" Count="1" />
+      <LineId Id="530" Count="0" />
+      <LineId Id="528" Count="1" />
+      <LineId Id="531" Count="0" />
+      <LineId Id="527" Count="0" />
+      <LineId Id="409" Count="2" />
+      <LineId Id="416" Count="0" />
+      <LineId Id="518" Count="0" />
+      <LineId Id="417" Count="11" />
+      <LineId Id="431" Count="1" />
+      <LineId Id="523" Count="0" />
+      <LineId Id="439" Count="40" />
+      <LineId Id="485" Count="0" />
+      <LineId Id="519" Count="2" />
+      <LineId Id="534" Count="5" />
+      <LineId Id="533" Count="0" />
+      <LineId Id="490" Count="11" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_FollowMasterPlanning">
+      <LineId Id="2" Count="106" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_FollowMaterPosition">
+      <LineId Id="2" Count="78" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_FollowPlanning">
+      <LineId Id="2" Count="4" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_FollowPosition">
+      <LineId Id="2" Count="28" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_GapControl">
+      <LineId Id="2" Count="11" />
+      <LineId Id="33" Count="49" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_GetPosition">
+      <LineId Id="2" Count="29" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_LinearPlanning">
+      <LineId Id="2" Count="9" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_LinearPosition">
+      <LineId Id="2" Count="1" />
+      <LineId Id="7" Count="11" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_NCStartCase">
+      <LineId Id="2" Count="55" />
+      <LineId Id="61" Count="12" />
+      <LineId Id="75" Count="7" />
+      <LineId Id="84" Count="5" />
+      <LineId Id="91" Count="15" />
+      <LineId Id="112" Count="13" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_NextPathUpdateNewTarPos">
+      <LineId Id="2" Count="134" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_NextRoadAccSegmengt">
+      <LineId Id="2" Count="5" />
+      <LineId Id="92" Count="142" />
+      <LineId Id="247" Count="9" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_NextRoadCatchUp">
+      <LineId Id="2" Count="32" />
+      <LineId Id="36" Count="69" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_NextRoadConVeloSegment">
+      <LineId Id="2" Count="151" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_NextRoadDecSegment">
+      <LineId Id="2" Count="154" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_NextRoadDecSegment_2">
+      <LineId Id="2" Count="157" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_NextRoadGapControl">
+      <LineId Id="2" Count="85" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_NodeConfig">
+      <LineId Id="2" Count="18" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_NodeUpdate">
+      <LineId Id="2" Count="3" />
+      <LineId Id="28" Count="0" />
+      <LineId Id="6" Count="1" />
+      <LineId Id="42" Count="2" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="79" Count="1" />
+      <LineId Id="97" Count="0" />
+      <LineId Id="81" Count="2" />
+      <LineId Id="90" Count="0" />
+      <LineId Id="84" Count="0" />
+      <LineId Id="87" Count="0" />
+      <LineId Id="78" Count="0" />
+      <LineId Id="98" Count="0" />
+      <LineId Id="8" Count="3" />
+      <LineId Id="96" Count="0" />
+      <LineId Id="93" Count="1" />
+      <LineId Id="29" Count="0" />
+      <LineId Id="95" Count="0" />
+      <LineId Id="30" Count="2" />
+      <LineId Id="35" Count="0" />
+      <LineId Id="38" Count="1" />
+      <LineId Id="34" Count="0" />
+      <LineId Id="72" Count="1" />
+      <LineId Id="92" Count="0" />
+      <LineId Id="74" Count="2" />
+      <LineId Id="88" Count="0" />
+      <LineId Id="77" Count="0" />
+      <LineId Id="86" Count="0" />
+      <LineId Id="71" Count="0" />
+      <LineId Id="99" Count="0" />
+      <LineId Id="33" Count="0" />
+      <LineId Id="12" Count="5" />
+      <LineId Id="104" Count="0" />
+      <LineId Id="18" Count="1" />
+      <LineId Id="45" Count="0" />
+      <LineId Id="20" Count="0" />
+      <LineId Id="47" Count="2" />
+      <LineId Id="51" Count="8" />
+      <LineId Id="50" Count="0" />
+      <LineId Id="46" Count="0" />
+      <LineId Id="70" Count="0" />
+      <LineId Id="60" Count="0" />
+      <LineId Id="100" Count="0" />
+      <LineId Id="65" Count="0" />
+      <LineId Id="61" Count="0" />
+      <LineId Id="91" Count="0" />
+      <LineId Id="62" Count="0" />
+      <LineId Id="89" Count="0" />
+      <LineId Id="63" Count="0" />
+      <LineId Id="85" Count="0" />
+      <LineId Id="68" Count="0" />
+      <LineId Id="101" Count="0" />
+      <LineId Id="21" Count="0" />
+      <LineId Id="103" Count="0" />
+      <LineId Id="22" Count="0" />
+      <LineId Id="102" Count="0" />
+      <LineId Id="23" Count="4" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_Planning">
+      <LineId Id="2" Count="17" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_Ploynom3Planning">
+      <LineId Id="2" Count="16" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_Ploynom3Position">
+      <LineId Id="2" Count="48" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_Ploynom5Position">
+      <LineId Id="2" Count="183" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_PositionHandle">
+      <LineId Id="2" Count="29" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_SShapedPlanning">
+      <LineId Id="2" Count="36" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_SShapedPosition">
+      <LineId Id="2" Count="43" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_StopHandle">
+      <LineId Id="2" Count="6" />
+      <LineId Id="423" Count="540" />
+      <LineId Id="1042" Count="1" />
+      <LineId Id="964" Count="77" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_TShaped">
+      <LineId Id="2" Count="153" />
+      <LineId Id="165" Count="1" />
+      <LineId Id="156" Count="0" />
+      <LineId Id="167" Count="0" />
+      <LineId Id="157" Count="7" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_TShapedPosition">
+      <LineId Id="2" Count="96" />
+      <LineId Id="127" Count="0" />
+      <LineId Id="99" Count="24" />
+      <LineId Id="1" Count="0" />
+      <LineId Id="124" Count="2" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator.A_UpdateNewTarPos">
+      <LineId Id="2" Count="58" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

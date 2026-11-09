@@ -1,0 +1,92 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_NCGenerator_Spy" Id="{54dc7b8d-25b6-4f55-8299-36f384b73c18}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_NCGenerator_Spy
+VAR_IN_OUT
+	stAxis: ST_Axis;
+END_VAR
+VAR_INPUT
+	fCycleTime: LREAL;
+END_VAR
+VAR
+	///_bCalStart             :BOOL:=FALSE;
+	_bEnable: BOOL;
+	///_bAutoPlan             :BOOL:=FALSE;
+	_bCalculateDone: BOOL;
+	_nIndex: UINT;
+	_fLinearDealt: LREAL;
+	_fLastPos: LREAL;
+END_VAR
+VAR CONSTANT
+	cStateIdle: INT := 0;
+	cStateReady: INT := 1;
+	cStatePathGenerator: INT := 2;
+	cDealtGap: REAL := 10000;
+	cNcCycle: REAL := 0.001;
+	cPointBuffer: UINT := 10;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// control logic 
+
+IF stAxis.stPLCTONC.bNcEnable  THEN
+ 
+   A_GetPosition();
+ELSE
+	stAxis.stAxisStatus.nNcCycleCounter:=0;
+END_IF
+]]></ST>
+    </Implementation>
+    <Action Name="A_GetPosition" Id="{f8cefc2f-ba91-43a5-9460-08cd1e4551ea}">
+      <Implementation>
+        <ST><![CDATA[
+
+IF (stAxis.stPLCTONC.ePlanningMode=E_PlanningMode.PLANNINGMODE_LINEAR)THEN 
+    A_LinearPosition();
+ELSE
+	;
+END_IF]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_LinearPosition" Id="{c3a4d63f-417c-4e77-9b53-d54870472712}">
+      <Implementation>
+        <ST><![CDATA[
+
+stAxis.stAxisStatus.nNcCycleCounter:=stAxis.stAxisStatus.nNcCycleCounter+1;
+IF (_fLastPos<>stAxis.stPLCTONC.stEndPosition.fPosition) THEN 
+	IF (stAxis.stPLCTONC.nLinearPointNum<>0)THEN
+        _fLinearDealt:=(stAxis.stPLCTONC.stEndPosition.fPosition-stAxis.stNcTOPLC.fActPos)/stAxis.stPLCTONC.nLinearPointNum;
+	ELSE
+		_fLinearDealt:=(stAxis.stPLCTONC.stEndPosition.fPosition-stAxis.stNcTOPLC.fActPos)/10;
+	END_IF
+END_IF 
+
+	
+stAxis.stNcTOPLC.fActPos:=stAxis.stNcTOPLC.fActPos+_fLinearDealt;	
+stAxis.stNcTOPLC.fSetPos:=stAxis.stNcTOPLC.fActPos;
+
+
+stAxis.stNcTOPLC.fSetVelo:=_fLinearDealt/0.001;
+stAxis.stNcTOPLC.fActVelo:=_fLinearDealt/0.001;
+
+IF (stAxis.stNcTOPLC.fActPos>=stAxis.stPLCTONC.stEndPosition.fPosition)THEN
+	_fLinearDealt:=0;
+END_IF
+
+_fLastPos:=stAxis.stPLCTONC.stEndPosition.fPosition;]]></ST>
+      </Implementation>
+    </Action>
+    <LineIds Name="FTS_NCGenerator_Spy">
+      <LineId Id="3" Count="7" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator_Spy.A_GetPosition">
+      <LineId Id="2" Count="5" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_NCGenerator_Spy.A_LinearPosition">
+      <LineId Id="2" Count="22" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

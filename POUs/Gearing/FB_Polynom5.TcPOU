@@ -1,0 +1,75 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_Polynom5" Id="{be203dec-eb9f-4847-aab8-07cd326953f6}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_Polynom5
+VAR_INPUT
+	fTheat_Start: LREAL;
+	fTheat_End: LREAL;
+	stStartPoint: ST_Point;
+	stEndPoint: ST_Point;
+END_VAR
+VAR_OUTPUT
+	stPolynom5Factor: ST_Polynom5Factor;
+END_VAR
+VAR
+	_fH: LREAL;
+	_fQ0: LREAL;
+	_fQ1: LREAL;
+	///fT    :LREAL;
+	///fT0    :LREAL;
+	_fV0: LREAL;
+	_fV1: LREAL;
+	_fAcc0: LREAL;
+	_fAcc1: LREAL;
+	_fQ: LREAL;
+	_fV: LREAL;
+	_fAcc: LREAL;
+	_fA: LREAL;
+	_fB: LREAL;
+	_fC: LREAL;
+	_fT3: LREAL;
+	_fT4: LREAL;
+	_fT5: LREAL;
+	_fDealt: LREAL;
+	_fDealTheat: LREAL;
+	_stPolynom5Factor: ST_Polynom5Factor;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[_fQ0:=stStartPoint.fPosition;
+_fQ1:=stEndPoint.fPosition;
+//fT0:=fStartTime;
+_fDealTheat:=fTheat_End-fTheat_Start;
+
+_fV0:=stStartPoint.fVelocity;
+_fV1:=stEndPoint.fVelocity;
+_fAcc0 :=stStartPoint.fAccleration;
+_fAcc1 :=stEndPoint.fAccleration;
+_fH:=_fQ1-_fQ0;
+
+
+_stPolynom5Factor.fA0:=_fQ0;
+_stPolynom5Factor.fA1:=_fV0;
+_stPolynom5Factor.fA2:=0.5*_fAcc0;
+
+_fA:=20*_fH-(8*_fV1+12*_fV0)*_fDealTheat+(_fAcc1-3*_fAcc0)*(fTheat_Start*fTheat_Start+fTheat_End*fTheat_End)+(6*_fAcc0-2*_fAcc1)*fTheat_Start*fTheat_End;
+_fT3:=_fDealTheat*_fDealTheat*_fDealTheat;
+_stPolynom5Factor.fA3:=0.5*_fA/_fT3;
+
+_fB :=-30*_fH+(14*_fV1+16*_fV0)*_fDealTheat+(2*_fAcc1-3*_fAcc0)*(fTheat_Start*fTheat_Start+fTheat_End*fTheat_End)+(6*_fAcc0-4*_fAcc1)*fTheat_Start*fTheat_End;
+_fT4:=_fDealTheat*_fDealTheat*_fDealTheat*_fDealTheat;
+_stPolynom5Factor.fA4:=0.5*_fB/_fT4;
+
+_fC:=12*_fH-6*(_fV1+_fV0)*_fDealTheat+(_fAcc1-_fAcc0)*(fTheat_Start*fTheat_Start+fTheat_End*fTheat_End)+(2*_fAcc0-2*_fAcc1)*fTheat_Start*fTheat_End;
+_fT5:=_fDealTheat*_fDealTheat*_fDealTheat*_fDealTheat*_fDealTheat;
+_stPolynom5Factor.fA5:=0.5*_fC/_fT5;
+
+stPolynom5Factor:=_stPolynom5Factor;
+]]></ST>
+    </Implementation>
+    <LineIds Name="FB_Polynom5">
+      <LineId Id="3" Count="28" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

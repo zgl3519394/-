@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_GroupAxisRef" Id="{b84b4095-f6ce-49e2-8c40-bf4e68d8fedc}">
+    <Declaration><![CDATA[TYPE ST_GroupAxisRef :
+STRUCT
+	nAxisId: DWORD;
+	eGroupType: E_GroupType;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

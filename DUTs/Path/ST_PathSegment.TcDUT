@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_PathSegment" Id="{8e70b513-5448-429e-907f-1f283f0eff34}">
+    <Declaration><![CDATA[TYPE ST_PathSegment :
+STRUCT
+	nPointNum: UDINT;
+	fTotalTime: LREAL;
+	fTa: LREAL;
+	fTv: LREAL;
+	fTd: LREAL;
+	fTj1: LREAL;
+	fTj2: LREAL;
+	fStartVelo: LREAL;
+	fExpVelo: LREAL;
+	fEndVelo: LREAL;
+	fAccleration: LREAL;
+	fDeceleration: LREAL;
+	fbJerk: LREAL;
+	fStartPos: LREAL;
+	fEndPos: LREAL;
+	fStartAcc: LREAL;
+	fEndAcc: LREAL;
+	fJmax: LREAL;
+	fJmin: LREAL;
+	fMasterStartPos: LREAL;
+	fMasteEndPos: LREAL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

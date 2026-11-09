@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_CamRef" Id="{bed8f214-5de6-49d4-8cea-910b82c7c312}">
+    <Declaration><![CDATA[TYPE ST_CamRef :
+STRUCT
+	nCamTableID: UINT;
+	nMasterID: UINT;
+	nElements: UINT;
+	nPointType: UINT;
+	///ePointType   :E_PointType;
+	fStartPos: LREAL;
+	fEndPos: LREAL;
+	fMasterMaxVelo: LREAL;
+	pPointArry: POINTER TO BYTE;
+	sCAMName: STRING;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

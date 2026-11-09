@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_DynamicDefaultAxis" Id="{72be789d-603f-431c-aff2-c92b111b8584}">
+    <Declaration><![CDATA[TYPE ST_DynamicDefaultAxis :
+STRUCT
+	///um/s
+	fDefaultVelocity: LREAL := 100000;
+	/// um/s*s
+	fDefaultAccelaration: LREAL := 5000000;
+	/// um/s*s
+	fDefaultDeceleration: LREAL := 5000000;
+	fDefaultJerk: LREAL := 50000000;
+	///um/s
+	fMaxVelocity: LREAL := 5000000;
+	/// um/s*s
+	fMaxAccelaration: LREAL := 20000000;
+	/// um/s*s
+	fMaxDeceleration: LREAL := 20000000;
+	fMaxJerk: LREAL := 200000000;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

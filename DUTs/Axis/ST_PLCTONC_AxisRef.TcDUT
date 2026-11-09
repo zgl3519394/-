@@ -1,0 +1,57 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_PLCTONC_AxisRef" Id="{1a8890ab-185e-4bd1-9e92-e1235ad1f3da}">
+    <Declaration><![CDATA[TYPE ST_PLCTONC_AxisRef :
+STRUCT
+	bNcStart: BOOL;
+	bNcStop: BOOL;
+	bNcEnable: BOOL;
+	bCmdDceUpdate: BOOL;
+	///终点位置计算完成但路径还未规划   04.02
+	bEndPosCalDone: BOOL;
+	///0:正向  1负向
+	bRoadDirection: BOOL;
+	bArrayReseved1: BOOL;
+	bArrayReseved2: BOOL;
+	bArrayReseved3: BOOL;
+	bArrayReseved4: BOOL;
+	bArrayReseved5: BOOL;
+	bArrayReseved6: BOOL;
+	bArrayReseved7: BOOL;
+	bArrayReseved8: BOOL;
+	bArrayReseved9: BOOL;
+	bArrayReseved10: BOOL;
+	///bArrayReseved         :ARRAY  [0..9] OF BOOL;   //05.06
+	nLinearPointNum: UINT;
+	nRoadID_1: UINT;
+	nRoadID_2: UINT;
+	///发1段用 1 第一road  2第二road
+	nRoadOrder: UINT;
+	nSysType: UINT;
+	///PLC TO NC controlword
+	nControlWord: DWORD;
+	///Velocity override 
+	nOverride: UDINT;
+	fTargetVelocity: LREAL;
+	///03.20
+	fTargetPos: LREAL;
+	///04.25 输入速度 
+	fSetVelocity: LREAL;
+	fRoad1_Length: LREAL;
+	fRoad2_Length: LREAL;
+	fGearRatio: LREAL;
+	/// 成组组内gap 03.31
+	fGroupInGap: LREAL;
+	/// 防碰撞距离偏差预设值06.30 
+	fDealtGap: LREAL;
+	eCommand: E_Command;
+	ePlanningMode: E_PlanningMode;
+	stStartPosition: ST_Point;
+	stEndPosition: ST_Point;
+	stMasterParam: ST_MasterParam;
+	stCamParam: ST_CamParam;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

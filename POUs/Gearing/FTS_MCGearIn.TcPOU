@@ -1,0 +1,449 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_MCGearIn" Id="{5a8a8652-2b16-4693-8af4-f58778f02237}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_MCGearIn
+VAR_IN_OUT
+	stMasterAxis: ST_Axis;
+	stSlaveAxis: ST_Axis;
+END_VAR
+VAR_INPUT
+	bExecute: BOOL;
+	nRatioNumerator: DINT := 1;
+	nRatioDenominator: UDINT := 1;
+	fAcceleration: LREAL;
+	fDeceleration: LREAL;
+	fJerk: LREAL;
+	eBufferMode: E_MCBufferMode := E_MCBufferMode.ABORTING;
+END_VAR
+VAR_OUTPUT
+	bInGear: BOOL;
+	bBusy: BOOL;
+	bActive: BOOL;
+	bCommandAborted: BOOL;
+	bError: BOOL;
+	nErrorId: UDINT;
+END_VAR
+VAR
+	_bPrepareDone: BOOL;
+	_bMasterStop: BOOL;
+	_bSegOver: BOOL := FALSE;
+	_bDeleteNodeOk: BOOL := FALSE;
+	_bParamError: BOOL := FALSE;
+	_bVeloExecute: BOOL := FALSE;
+	_nStep: INT;
+	_nCuRoadID: UINT;
+	_nSysType: UINT;
+	_fGap: LREAL;
+	_fMaserGap: LREAL;
+	_fPostion: LREAL;
+	_fClampLength: LREAL;
+	_fDistance1: LREAL;
+	_fDistance2: LREAL;
+	_fAcc: LREAL;
+	_fDec: LREAL;
+	_fNewClampLength: LREAL;
+	_fGearRatio: LREAL;
+	_eCommand: E_Command := E_Command.COMMAND_IDLE;
+	_eDirection: E_Direction := 1;
+	_stPathRef: ST_PathRef;
+	_stNoPathRef: ST_PathRef;
+	_stPathReftemp: ST_PathRef;
+	_stPrePathRef: ST_PathRef;
+	_pPremover: POINTER TO ST_Axis;
+	///03.04
+	_fbEnbleTrig: F_TRIG;
+	_fbGearOutFtrig: F_TRIG;
+	_fbTrig: R_TRIG;
+	_fbWaitTon: TON;
+	_fbAxisGroupList: FTS_AxisGroupList;
+	_fbMoveVelocity: FTS_MCMoveVelocity;
+END_VAR
+VAR CONSTANT
+	tcDoneTime: TIME := TIME#100ms;
+	tcWaitTime: TIME := TIME#1s0ms;
+	nRoadNum: UINT := 10;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+A_CommandCheck();
+
+
+CASE  _nStep  OF 
+	0:
+	     IF NOT bExecute THEN 
+			  bError:=FALSE;
+			  nErrorId:=0;
+			  bInGear:=FALSE;
+			  bCommandAborted:=FALSE;
+			  _bDeleteNodeOk:=FALSE;
+			  _eCommand:=E_Command.COMMAND_IDLE;
+		 END_IF
+	     RETURN  ;
+		 
+    10:   //position prepare
+	    
+	     bBusy:=TRUE;
+	     bError:=FALSE;
+	     bActive:=FALSE;
+		 nErrorId:=0;
+		 //bInGear:=FALSE;
+         A_PosPrepare();
+		 A_ParamCheck();
+		 IF _bPrepareDone THEN 
+			 _nStep:=_nStep+10;
+			  _bPrepareDone:=FALSE;
+		 END_IF
+		 IF _bParamError THEN
+			_nStep:=100;
+			_bParamError:=FALSE;
+		 END_IF
+    20:  //axis state change 
+	     
+		 
+		// 分为静态和动态耦合
+		bActive:=TRUE;
+	    stSlaveAxis.stAxisStatus.pMaster:=ADR(stMasterAxis);
+		//A_PathGenaration();
+		IF (stSlaveAxis.stAxisStatus.pMaster^.stAxisStatus.nNcCycleCounter=0)THEN
+		     stSlaveAxis.stAxisStatus.bSynchronizedMotion:=TRUE;
+			 bInGear:=TRUE;
+		     _nStep:=_nStep+10;
+		    IF (stSlaveAxis.stAxisStatus.nNcCycleCounter<>0)THEN
+				_nStep:=100;
+		        nErrorID:=30376;
+			END_IF
+		ELSE
+			_bVeloExecute:=TRUE;
+			IF NOT _fbMoveVelocity.bError  THEN 
+				IF _fbMoveVelocity.bInVelocity THEN
+					bInGear:=TRUE;
+					stSlaveAxis.stAxisStatus.bSynchronizedMotion:=TRUE;
+		            _nStep:=_nStep+10;
+			        _bVeloExecute:=FALSE;
+				END_IF
+			ELSE
+	            _nStep:=100;
+		        nErrorID:=30377;
+			END_IF
+		END_IF 
+		
+		
+    30:
+	     A_PathGenaration();
+		 stSlaveAxis.stPLCTONC.bNcEnable:=TRUE;
+		 stSlaveAxis.stPLCTONC.eCommand:=E_Command.COMMAND_GEARIN;
+		 _eCommand:=stSlaveAxis.stPLCTONC.eCommand;
+		 stSlaveAxis.stPLCTONC.ePlanningMode:=E_PlanningMode.PLANNINGMODE_FOLLOWMASTER;
+		 stSlaveAxis.stPLCTONC.fGearRatio:=_fGearRatio;
+		 
+         IF NOT _bDeleteNodeOk THEN      //road切换 节点更新失败
+			_nStep:=100;
+			nErrorID:=30381;
+			_bDeleteNodeOk:=FALSE;
+		 END_IF
+		 
+		 
+    50:  // gearout stop  or disenable stop
+	    // IF (stSlaveAxis.stAxisStatus.nNcCycleCounter<>0)AND (stSlaveAxis.stNcTOPLC.fActVelo<>0)  THEN 
+		IF (stSlaveAxis.stAxisStatus.nNcCycleCounter<>0) AND (stSlaveAxis.stNcTOPLC.fActVelo>0) THEN 
+			 A_StopPathGeneration();
+			 stSlaveAxis.stPLCTONC.bNcStart:=TRUE;
+			 stSlaveAxis.stPLCTONC.eCommand:=E_Command.COMMAND_ABSOLUTE;
+			 stSlaveAxis.stPLCTONC.ePlanningMode:=E_PlanningMode.PLANNINGMODE_TSHAPED;
+			 _nStep:=_nStep+10;
+			 
+	     ELSE
+			 _nStep:=70;
+			 stSlaveAxis.stPLCTONC.eCommand:=E_Command.COMMAND_IDLE;
+			 stSlaveAxis.stPLCTONC.bNcEnable:=FALSE;
+		 END_IF 
+		  
+    60:  
+         IF (stSlaveAxis.stNcTOPLC.nAxisState=2)THEN
+			 
+			stSlaveAxis.stPLCTONC.bNcEnable:=FALSE;
+		    stSlaveAxis.stPLCTONC.bNcStart:=FALSE;
+			 _nStep:=_nStep+10;
+	      END_IF 
+    70:
+	      bBusy:=FALSE;
+		  bInGear:=FALSE;
+		  bActive:=FALSE;
+		  bCommandAborted:=TRUE;
+		  stSlaveAxis.stAxisStatus.bSynchronizedMotion:=FALSE;
+		  stSlaveAxis.stPLCTONC.eCommand:=E_Command.COMMAND_IDLE;
+		  stSlaveAxis.stPLCTONC.ePlanningMode:=E_PlanningMode.PLANNINGMODE_NONE;
+		  _nStep:=0;
+	
+    100:
+	      bBusy:=FALSE;
+	      bError:=TRUE;
+	      bActive:=FALSE;
+	      stSlaveAxis.stPLCTONC.bNcEnable:=FALSE;
+		  stSlaveAxis.stPLCTONC.bNcStart:=FALSE;
+	      stSlaveAxis.stAxisStatus.bError:=TRUE;
+		  stSlaveAxis.stAxisStatus.nErrorId:=nErrorID;
+	      _nStep:=0;
+		  stSlaveAxis.stPLCTONC.eCommand:=E_Command.COMMAND_IDLE;
+		  stSlaveAxis.stPLCTONC.ePlanningMode:=E_PlanningMode.PLANNINGMODE_NONE;
+          stSlaveAxis.stAxisStatus.bSynchronizedMotion:=FALSE;
+		 
+		 
+    110:
+	     bBusy:=FALSE;
+	     bError:=TRUE;
+	     bActive:=FALSE;
+         bCommandAborted:=TRUE;
+	     _nStep:=0;	
+		
+		 
+	
+END_CASE
+A_DyGearIn();
+A_UpstateStatus();]]></ST>
+    </Implementation>
+    <Action Name="A_CommandCheck" Id="{187ac74f-cbf6-4fcf-847c-20b97ca06d78}">
+      <Implementation>
+        <ST><![CDATA[
+_fbTrig(CLK:=bExecute , Q=> );
+IF _fbTrig.Q THEN
+	_nStep:=10;
+	A_Init();
+	IF (NOT stSlaveAxis.stAxisStatus.bEnabled) OR stSlaveAxis.stAxisStatus.bError  OR stSlaveAxis.stAxisStatus.bStopping THEN 
+		_nStep:=100;
+		//bError:=TRUE;
+		nErrorID:=30374;
+		RETURN;
+	END_IF
+	IF stMasterAxis.stAxisStatus.bError THEN
+		_nStep:=100;
+		//bError:=TRUE;
+		nErrorID:=30375;
+		RETURN;
+	END_IF
+END_IF
+
+//gearout
+
+IF (stSlaveAxis.stPLCTONC.eCommand=E_Command.COMMAND_GEAROUT) AND (_nStep<>0)AND(_eCommand=E_Command.COMMAND_GEARIN)THEN 
+	_nStep:=50;
+END_IF      
+//command aborted    stop and halt
+
+IF ((stSlaveAxis.stPLCTONC.eCommand=E_Command.COMMAND_STOP)OR((stSlaveAxis.stPLCTONC.eCommand=E_Command.COMMAND_HALT))) 
+      AND (_nStep<>0)AND(_eCommand=E_Command.COMMAND_GEARIN)THEN 
+	_nStep:=110;
+END_IF
+
+//disenable
+_fbEnbleTrig(CLK:=stSlaveAxis.stAxisStatus.bEnabled , Q=> );
+IF _fbEnbleTrig.Q   THEN 
+	
+	IF (_nStep=0)THEN
+		bBusy:=FALSE;
+		bInGear:=FALSE;
+		bActive:=FALSE;
+	   // _nStep:=0;	
+		//stSlaveAxis.stAxisStatus.bSynchronizedMotion:=FALSE;
+	ELSE
+      _nStep:=50;
+    END_IF 	
+END_IF]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_DyGearIn" Id="{c8f8385e-514a-4142-9fc1-eae8a45ac76a}">
+      <Implementation>
+        <ST><![CDATA[
+_fbMoveVelocity(
+	stAxis:=stSlaveAxis , 
+	bExecute:=_bVeloExecute , 
+	bCollsionNotValid:= TRUE, 
+	fVelocity:=_fGearRatio*stMasterAxis.stPLCTONC.fTargetVelocity , 
+	fAcceleration:=_fAcc , 
+	fDeceleration:=_fDec, 
+	fJerk:= , 
+	fGap:= , 
+	eDirection:=_eDirection , 
+	bInVelocity=> , 
+	bActive=> , 
+	bBusy=> , 
+	bCommandAborted=> , 
+	bError=> , 
+	nErrorID=> );]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_Init" Id="{c42b72b3-0991-484e-b48c-60a8c98a82cd}">
+      <Implementation>
+        <ST><![CDATA[_bPrepareDone:=FALSE;
+
+ _stPathRef:=_stNoPathRef;
+ _stPathRef.bCalculateDone:=FALSE;
+ _stPrePathRef:=_stNoPathRef;
+ 
+  _fbWaitTon(IN:=FALSE , PT:=tcWaitTime , Q=> , ET=> );
+  
+  _bDeleteNodeOk:=false;]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_ParamCheck" Id="{4ab2d1ba-17da-462a-8bac-54d1a24251d7}">
+      <Implementation>
+        <ST><![CDATA[//参数校验
+IF (ADR(stMasterAxis)=0)THEN 
+	_bParamError:=TRUE;  
+	 nErrorID:=30379;
+    RETURN;	
+END_IF
+
+IF ADR(stMasterAxis)=ADR(stSlaveAxis)THEN 
+     _bParamError:=TRUE;  
+	 nErrorID:=30380;
+     RETURN; 
+		
+END_IF
+
+(*IF (stMasterAxis.stAxisStatus.nNcCycleCounter<>0) THEN 
+	_bParamError:=TRUE;  
+	nErrorID:=30381;
+     RETURN; 
+END_IF*)
+
+_fClampLength:=stSlaveAxis.stAxisParam.fClampLength*0.5;
+
+IF (fAcceleration=0) THEN 
+	_fAcc:=stSlaveAxis.stAxisParam.stDynamicDefault.fDefaultAccelaration;
+ELSE
+	_fAcc:=ABS(fAcceleration);
+END_IF
+IF (fDeceleration=0) THEN
+   _fDec:=stSlaveAxis.stAxisParam.stDynamicDefault.fDefaultDeceleration;
+ELSE 
+   _fDec:=ABS(fDeceleration);
+END_IF
+_nSysType:=stSlaveAxis.stAxisParam.stRoadParam.nSysType;
+
+
+//速度计算
+IF (nRatioDenominator<>0) AND (nRatioNumerator<>0)THEN 
+  
+   _fGearRatio :=ABS(DINT_TO_REAL(nRatioNumerator)/ UDINT_TO_REAL(nRatioDenominator));
+ELSE
+	_fGearRatio :=1.0;
+END_IF]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_PathGenaration" Id="{c5d14756-d38f-4a30-ad6f-fd95ec2193e2}">
+      <Implementation>
+        <ST><![CDATA[// gap
+
+IF (stMasterAxis.stAxisStatus.stPathRef.fGap<>0)THEN 
+    stSlaveAxis.stAxisStatus.stPathRef.fGap:= stMasterAxis.stAxisStatus.stPathRef.fGap-stMasterAxis.stAxisParam.fClampLength*0.5
+                                                 +stSlaveAxis.stAxisParam.fClampLength*0.5;
+ELSE
+	stSlaveAxis.stAxisStatus.stPathRef.fGap:= ABS(stMasterAxis.stAxisParam.fGap);
+END_IF
+
+//速度计算
+(*IF (nRatioDenominator<>0) AND (nRatioNumerator<>0)THEN 
+  
+   stSlaveAxis.stPLCTONC.fGearRatio:=ABS(DINT_TO_REAL(nRatioNumerator)/ UDINT_TO_REAL(nRatioDenominator));
+ELSE
+	stSlaveAxis.stPLCTONC.fGearRatio:=1.0;
+END_IF*)
+// slave direction
+IF stMasterAxis.stAxisStatus.bPositiveDirection THEN
+	stSlaveAxis.stAxisStatus.bPositiveDirection:=TRUE;
+	stSlaveAxis.stAxisStatus.bNegativeDirection:=FALSE;
+	_eDirection:=1;
+ELSE
+    stSlaveAxis.stAxisStatus.bPositiveDirection:=FALSE;
+	stSlaveAxis.stAxisStatus.bNegativeDirection:=TRUE;
+	_eDirection:=3;
+END_IF
+
+ _nSysType:=stSlaveAxis.stAxisStatus.pMaster^.stPLCTONC.nSysType;
+stSlaveAxis.stPLCTONC.nSysType:=_nSysType;
+
+
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_PosPrepare" Id="{f7efaec3-a8aa-4e18-914a-f42bb1e804af}">
+      <Implementation>
+        <ST><![CDATA[_bPrepareDone:=TRUE;
+
+_nCuRoadID:=stSlaveAxis.stNcTOPLC.nCuRoadID;]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_StopPathGeneration" Id="{ed69f1f7-0dac-4bf0-a14a-2da5f8165c33}">
+      <Implementation>
+        <ST><![CDATA[
+_fPostion:=0.5*stSlaveAxis.stNcTOPLC.fActVelo*stSlaveAxis.stNcTOPLC.fActVelo/_fDec;
+IF stSlaveAxis.stAxisStatus.bPositiveDirection THEN
+	stSlaveAxis.stPLCTONC.stEndPosition.fPosition:=_fPostion+stSlaveAxis.stNcTOPLC.fActPos;
+ELSE
+	stSlaveAxis.stPLCTONC.stEndPosition.fPosition:=stSlaveAxis.stNcTOPLC.fActPos-_fPostion;
+END_IF
+
+stSlaveAxis.stPLCTONC.fTargetVelocity:=stSlaveAxis.stNcTOPLC.fActVelo;
+stSlaveAxis.stPLCTONC.stEndPosition.fVelocity:=0;
+stSlaveAxis.stPLCTONC.stEndPosition.fAccleration:=_fDec;
+stSlaveAxis.stPLCTONC.stEndPosition.fDeceleration:=_fDec;]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="A_UpstateStatus" Id="{53c15047-e6c4-4e3b-92ec-bf52d8161408}">
+      <Implementation>
+        <ST><![CDATA[
+IF bInGear THEN 
+	stSlaveAxis.stAxisStatus.nCycleCounter:=stMasterAxis.stAxisStatus.nCycleCounter;
+    stSlaveAxis.stAxisStatus.nStep:=stMasterAxis.stAxisStatus.nStep;
+	IF  NOT _bDeleteNodeOk THEN 
+  
+	   _bDeleteNodeOk:=_fbAxisGroupList.M_DeleteNode(aRoadRef:=GVL_MC.aRoadRef , nRoadId:=_nCuRoadID, nSysType:=_nSysType, pAixs:=ADR(stSlaveAxis) );
+	   
+    END_IF	
+ELSE
+	_bDeleteNodeOk:=FALSE;
+END_IF
+
+]]></ST>
+      </Implementation>
+    </Action>
+    <LineIds Name="FTS_MCGearIn">
+      <LineId Id="3" Count="135" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_MCGearIn.A_CommandCheck">
+      <LineId Id="2" Count="43" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_MCGearIn.A_DyGearIn">
+      <LineId Id="2" Count="15" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_MCGearIn.A_Init">
+      <LineId Id="2" Count="7" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_MCGearIn.A_ParamCheck">
+      <LineId Id="2" Count="40" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_MCGearIn.A_PathGenaration">
+      <LineId Id="2" Count="30" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_MCGearIn.A_PosPrepare">
+      <LineId Id="2" Count="1" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_MCGearIn.A_StopPathGeneration">
+      <LineId Id="2" Count="10" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FTS_MCGearIn.A_UpstateStatus">
+      <LineId Id="2" Count="12" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

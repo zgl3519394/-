@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_Command" Id="{017c3fba-e765-43de-9400-16678fcc2f6e}">
+    <Declaration><![CDATA[{attribute 'qualified_only' := ''}
+{attribute 'strict' := ''}
+TYPE E_Command :
+(
+	COMMAND_IDLE := 0,
+	COMMAND_JOGFORWARD := 1,
+	COMMAND_JOGBACKWARD := 2,
+	COMMAND_MOVEVELOCITY := 3,
+	COMMAND_ABSOLUTE := 4,
+	COMMAND_RELATIVE := 5,
+	COMMAND_ADDITIVE := 6,
+	COMMAND_MODULOPOS := 7,
+	COMMAND_ABSOLUTEFORK := 10,
+	COMMAND_GEARINPOS := 19,
+	COMMAND_GEARIN := 20,
+	COMMAND_CAMIN := 21,
+	COMMAND_GEAROUT := 40,
+	COMMAND_CAMOUT := 41,
+	COMMAND_HALT := 50,
+	COMMAND_STOP := 51
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

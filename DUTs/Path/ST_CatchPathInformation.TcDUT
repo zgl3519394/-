@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_CatchPathInformation" Id="{f223dd03-7b9a-4a5e-b095-cb67341ed6e7}">
+    <Declaration><![CDATA[TYPE ST_CatchPathInformation :
+STRUCT
+	///匀速速度
+	fVelocity_1: LREAL;
+	///最大速度
+	fVelocity_2: LREAL;
+	///追赶速度
+	fVelocity_3: LREAL;
+	fTa: LREAL;
+	fTv: LREAL;
+	fTd: LREAL;
+	fTotalTime: LREAL;
+	///与前任动子初始位置偏差
+	fDealtInPos: LREAL;
+	///期望速度
+	fExVelocity: LREAL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

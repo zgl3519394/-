@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_CamParam" Id="{8dff8ca0-22b0-4cf5-9ebe-b6027cba8191}">
+    <Declaration><![CDATA[TYPE ST_CamParam :
+STRUCT
+	bCamLoad: BOOL;
+	bPeriodic: BOOL;
+	nElements: UINT;
+	nBuffNum: UINT;
+	nPointType: UINT;
+	aCamBuffer: ARRAY[0..9] OF ST_CamXYVA;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

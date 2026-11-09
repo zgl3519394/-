@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FC_FindPosition" Id="{415dd5fd-2f99-49c4-af0c-38f27e6ffaef}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION FC_FindPosition : LREAL
+VAR_INPUT
+	///05/05
+	pPathData: ARRAY[0..2] OF ST_PathSegment;
+END_VAR
+VAR
+	_nIndex: UINT;
+	_nSize: UINT;
+	_fPostion: LREAL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+FOR _nIndex:=0 TO  2  DO
+	IF (pPathData[_nIndex].fTotalTime=0)AND(_nIndex>0)THEN 
+		_fPostion:=pPathData[_nIndex-1].fEndPos;
+	    EXIT;
+	END_IF
+
+END_FOR
+FC_FindPosition:=_fPostion;]]></ST>
+    </Implementation>
+    <LineIds Name="FC_FindPosition">
+      <LineId Id="3" Count="7" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

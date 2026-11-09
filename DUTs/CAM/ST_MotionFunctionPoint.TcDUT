@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_MotionFunctionPoint" Id="{ebe2ed35-1f3a-4e00-b48d-8b9a5c5998f1}">
+    <Declaration><![CDATA[TYPE ST_MotionFunctionPoint :
+STRUCT
+	nPointIndex: UDINT;
+	nNextPointIndex: UDINT;
+	eFunctionType: E_MotionFunctionType;
+	ePointType: E_MotionPointType;
+	/// X 
+	MasterPos: LREAL;
+	/// Y 
+	SlavePos: LREAL;
+	/// Y' 
+	SlaveVelo: LREAL;
+	/// Y'' 
+	SlaveAcc: LREAL;
+	/// Y''' 
+	SlaveJerk: LREAL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

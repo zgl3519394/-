@@ -1,0 +1,86 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_MCSetPosition" Id="{8c45ff90-e117-4777-95c9-ec83660f040c}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_MCSetPosition
+VAR_IN_OUT
+	stAxis: ST_Axis;
+END_VAR
+VAR_INPUT
+	bExecute: BOOL;
+	///true 绝对  false 相对
+	bMode: BOOL;
+	fPosition: LREAL;
+END_VAR
+VAR_OUTPUT
+	bDone: BOOL;
+	bBusy: BOOL;
+	bError: BOOL;
+	nErrorID: UDINT;
+END_VAR
+VAR
+	_nStep: INT;
+	_fbTrig: R_TRIG;
+	_fbTon: TON;
+	_fbDoneTon: TON;
+END_VAR
+VAR CONSTANT
+	tcDoneTime: TIME := TIME#100ms;
+	tcWaitTime: TIME := TIME#16m40s0ms;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[CASE _nStep OF
+	0:(* check axis satus*)
+	     IF NOT bExecute  THEN
+			 bDone:=FALSE;
+			 bError:=FALSE;
+			 _fbTon(IN:=FALSE, PT:=tcWaitTime  , Q=> , ET=> );
+		 END_IF
+	     RETURN;
+   10:
+		  bBusy:=TRUE;
+		  bError:=FALSE;
+		  nErrorID:=0;
+		  bDone:=FALSE;
+		  _fbTon(IN:=FALSE, PT:=tcWaitTime  , Q=> , ET=> );
+		  _nStep:=20;
+      
+   20:
+		 IF NOT bMode THEN    //绝对位置
+		     stAxis.stNcTOPLC.fActPos:=fPosition;
+		 ELSE
+			 stAxis.stNcTOPLC.fActPos:=stAxis.stNcTOPLC.fActPos+fPosition;
+		 END_IF 
+		 bBusy:=FALSE;
+		 bDone:=TRUE;
+		 IF NOT bExecute THEN
+		    _nStep:=30; 
+		    _fbDoneTon(IN:=FALSE, PT:=tcDoneTime , Q=> , ET=> );
+		 ELSE
+			 _nStep:=0;
+		 END_IF 
+	   
+   30:
+        _fbDoneTon(IN:=TRUE, PT:=tcDoneTime , Q=> , ET=> );
+        IF _fbDoneTon.Q THEN
+		    bDone:=FALSE;
+		    _fbDoneTon(IN:=FALSE, PT:=tcDoneTime , Q=> , ET=> );
+		    _nStep:=0;
+		   
+	    END_IF
+  
+   100:
+        bBusy:=FALSE;
+	    bError:=TRUE;
+	    stAxis.stAxisStatus.bError:=TRUE;
+	    _nStep:=0;
+	  
+	  
+END_CASE]]></ST>
+    </Implementation>
+    <LineIds Name="FTS_MCSetPosition">
+      <LineId Id="3" Count="46" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

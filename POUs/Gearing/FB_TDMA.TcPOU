@@ -1,0 +1,53 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_TDMA" Id="{e974ed34-7538-4bca-9878-ec87a5b626f8}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_TDMA
+VAR_INPUT
+	nDimension: INT;
+	faMatrix_A: ARRAY[0..5] OF LREAL;
+	faMatrix_B: ARRAY[0..5] OF LREAL;
+	faMatrix_C: ARRAY[0..5] OF LREAL;
+	faMatrix_D: ARRAY[0..5] OF LREAL;
+END_VAR
+VAR_OUTPUT
+	faMatrix_X: ARRAY[0..5] OF LREAL;
+END_VAR
+VAR
+	_nIndex: INT;
+	_fM: LREAL;
+	_fV1: LREAL;
+	_fV2: LREAL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+faMatrix_C[0]:=faMatrix_C[0]/faMatrix_B[0];
+faMatrix_D[0]:=faMatrix_D[0]/faMatrix_B[0];
+
+FOR _nIndex:=1 TO (nDimension-2) DO 
+	_fM :=faMatrix_B[_nIndex]-faMatrix_C[_nIndex-1]*faMatrix_A[_nIndex];
+	faMatrix_C[_nIndex]:=faMatrix_C[_nIndex]/_fM;
+
+END_FOR
+
+FOR _nIndex:=1 TO (nDimension-2) DO 
+	_fV1 :=faMatrix_D[_nIndex]-faMatrix_D[_nIndex-1]*faMatrix_A[_nIndex];
+	_fV2 :=faMatrix_B[_nIndex]-faMatrix_C[_nIndex-1]*faMatrix_A[_nIndex];
+	faMatrix_D[_nIndex]:=_fV1/_fV2;
+
+END_FOR
+
+faMatrix_X[nDimension-1]:=faMatrix_D[nDimension-1];
+
+FOR _nIndex:=(nDimension-2) TO 1 DO 
+	faMatrix_X[_nIndex]:=faMatrix_D[_nIndex]-faMatrix_C[_nIndex]*faMatrix_X[_nIndex+1];
+
+END_FOR
+]]></ST>
+    </Implementation>
+    <LineIds Name="FB_TDMA">
+      <LineId Id="3" Count="22" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,155 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_JsonReadMover" Id="{4be366a7-f616-431f-b914-0ed59adb61b4}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_JsonReadMover
+VAR_INPUT
+	bExecute: BOOL;
+	nMoverNum: UINT;
+	sJsonPath: STRING;
+END_VAR
+VAR_OUTPUT
+	bBusy: BOOL;
+	bDone: BOOL;
+	bError: BOOL;
+	nErrorId: UDINT;
+	hrErrorCode: HRESULT;
+END_VAR
+VAR_IN_OUT
+	aMovers: ARRAY[1..GVL_MC.MAX_MOVER] OF ST_Mover;
+	aAxis: ARRAY[1..GVL_MC.MAX_MOVER] OF ST_Axis;
+END_VAR
+VAR
+	_bLoaded: BOOL;
+	_bLoad: BOOL;
+	_nStep: INT;
+	_nArraySize: UINT;
+	_nIndex: UINT;
+	_sJsonRoot: SJsonValue;
+	_sJsonProp: SJsonValue;
+	_sJsonSubRoot: SJsonValue;
+	_pJsonValue: Tc3_JsonXml.PVOID;
+	_fbTrig: R_TRIG;
+	_fbJson: FB_JsonDomParser;
+	_fbDoneTon: TON;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[_fbTrig(CLK:=bExecute , Q=> );
+
+IF _fbTrig.Q AND(_nStep=0)THEN
+	_nStep:=10;
+	
+END_IF
+
+CASE _nStep  OF 
+	0:
+	    IF NOT bExecute THEN 
+			bError:=FALSE;
+			nErrorId:=0;
+		END_IF
+	    RETURN ;
+ 
+
+    10:
+	     bBusy:=TRUE;
+		 bDone:=FALSE;   
+	     bError:=FALSE;
+		 nErrorId:=0;
+		 _bLoad:=TRUE;
+		 _nStep:=_nStep+10;
+		 
+		 
+    20:
+	     IF _bLoad  THEN
+			 _bLoaded :=_fbJson.LoadDocumentFromFile(sFile:=sJsonPath , bExec:=_bLoad , hrErrorCode=>hrErrorCode );
+		 ELSE
+
+			 IF (hrErrorCode<>0) THEN
+				 _nStep:=100;
+				 nErrorId:=DINT_TO_UDINT(hrErrorCode);
+				 
+			 ELSE
+				 IF _bLoaded THEN
+			        _nStep:=_nStep+10;
+					_bLoaded:=FALSE;
+				 ELSE
+					_nStep:=100;
+                    nErrorId:=32566;
+			     END_IF 
+			 END_IF 
+		 END_IF 
+		 
+    30:
+	        _sJsonRoot:=_fbJson.GetDocumentRoot();
+		    _sjsonProp := _fbJson.FindMemberPath(_sJsonRoot, 'mover');
+            _nArraySize := UDINT_TO_UINT(_fbJson.GetArraySize( _sjsonProp));
+			IF (_nArraySize<>0) THEN
+				FOR  _nIndex:=0 TO (_nArraySize-1)  DO
+				  _pJsonValue := _fbJson.GetArrayValueByIdx(_sjsonProp,_nIndex);
+				  _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'physical_id');
+				  IF (_sJsonSubRoot <> 0) THEN
+					aMovers[_nIndex+1].nId := STRING_TO_DINT(_fbJson.Getstring(_sJsonSubRoot));
+					aAxis[_nIndex+1].stNcTOPLC.nAxisId:=DINT_TO_DWORD(aMovers[_nIndex+1].nId);
+					aAxis[_nIndex+1].stAxisParam.nAxisId:=aAxis[_nIndex+1].stNcTOPLC.nAxisId;
+					
+				  END_IF
+				  _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'length');
+				  IF (_sJsonSubRoot <> 0) THEN
+					aMovers[_nIndex+1].nLength := STRING_TO_DINT(_fbJson.Getstring(_sJsonSubRoot));
+					aAxis[_nIndex+1].stAxisParam.fLength:=DINT_TO_LREAL(aMovers[_nIndex+1].nLength);
+				  END_IF
+				  _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'clamp_length');
+				  IF (_sJsonSubRoot <> 0) THEN
+					aMovers[_nIndex+1].nClampLength := STRING_TO_DINT(_fbJson.Getstring(_sJsonSubRoot));
+					IF (aMovers[_nIndex+1].nLength>aMovers[_nIndex+1].nClampLength)THEN 
+						aAxis[_nIndex+1].stAxisParam.fClampLength:=DINT_TO_LREAL(aMovers[_nIndex+1].nLength);
+					ELSE
+						aAxis[_nIndex+1].stAxisParam.fClampLength:=DINT_TO_LREAL(aMovers[_nIndex+1].nClampLength);
+					END_IF
+					
+				  END_IF
+				  _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'gap');
+				  IF (_sJsonSubRoot <> 0) THEN
+					aMovers[_nIndex+1].nGap := STRING_TO_DINT(_fbJson.Getstring(_sJsonSubRoot));
+					aAxis[_nIndex+1].stAxisParam.fGap:=DINT_TO_LREAL(aMovers[_nIndex+1].nGap);
+				   
+				  END_IF
+				END_FOR
+			END_IF 
+		  _nStep:=_nStep+5;
+		  
+   35:
+         FOR _nIndex:=1 TO GVL_MC.MAX_MOVER  DO
+			 aAxis[_nIndex].stNcTOPLC.nCuRoadID:=aAxis[_nIndex].stCodToNCParam.nRoadID; 
+		 END_FOR
+		 _nStep:=40;
+	    
+   40:
+        bBusy:=FALSE;
+	    bDone:=TRUE; 
+		_fbDoneTon(IN:=FALSE , PT:= T#100MS, Q=> , ET=> );
+	   _nStep:=_nStep+10;
+   
+   50:
+        _fbDoneTon(IN:=TRUE , PT:= T#100MS, Q=> , ET=> );
+		IF _fbDoneTon.Q  THEN 
+	        bDone:=FALSE;   
+            _nStep:=0;
+			_fbDoneTon(IN:=FALSE , PT:= T#100MS, Q=> , ET=> );
+        END_IF 
+
+   100:  // error handle 
+         bBusy:=FALSE;
+		 bDone:=FALSE;   
+	     bError:=TRUE;
+		// nErrorId:=DINT_TO_UDINT(hrErrorCode);
+         _nStep:=0;
+
+END_CASE]]></ST>
+    </Implementation>
+    <LineIds Name="FTS_JsonReadMover">
+      <LineId Id="3" Count="110" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

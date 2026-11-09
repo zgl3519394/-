@@ -1,0 +1,106 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_MCGearOut_V2" Id="{ddb509b0-114f-4182-9b93-bb2dfede7767}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_MCGearOut_V2
+VAR_IN_OUT
+	stSlaveAxis: ST_Axis;
+END_VAR
+VAR_INPUT
+	bExecute: BOOL;
+END_VAR
+VAR_OUTPUT
+	bBusy: BOOL;
+	bDone: BOOL;
+	bError: BOOL;
+	nErrorId: UDINT;
+END_VAR
+VAR
+	_bInsertNodeOk: BOOL := FALSE;
+	///_bNodeListError    :BOOL:=FALSE;
+	_nStep: INT;
+	_nCuRoadID: UINT;
+	_fbTrig: R_TRIG;
+	_fbDoneTon: TON;
+	_fbAxisGroupList: FTS_AxisGroupList;
+END_VAR
+VAR CONSTANT
+	tcDoneTime: TIME := TIME#100ms;
+	tcWaitTime: TIME := TIME#16m40s0ms;
+	nRoadNum: UINT := 10;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[_fbTrig(CLK:=bExecute , Q=> );
+IF _fbTrig.Q AND(_nStep=0)THEN
+	_nStep:=10;
+END_IF
+
+CASE _nStep  OF 
+	0:
+	    IF NOT bExecute THEN 
+			bError:=FALSE;
+			bDone:=FALSE;
+		    nErrorId:=0;
+			_bInsertNodeOk:=FALSE;
+		END_IF
+	    RETURN ;
+		
+    10:
+	    
+		bBusy:=TRUE;
+		bDone:=FALSE;
+		bError:=FALSE;
+		nErrorId:=0;
+		stSlaveAxis.stPLCTONC.eCommand:=E_Command.COMMAND_GEAROUT;  //03.11
+		_nStep:=20;
+	
+	20:
+	    bBusy:=FALSE;
+	    bDone:=TRUE;
+		_nCuRoadID:=stSlaveAxis.stNcTOPLC.nCuRoadID;
+		//_bInsertNodeOk:=_fbAxisGroupList.M_InsertNode(aRoadRef:=GVL_MC.aRoadRef , nRoadId:=_nCuRoadID ,nSysType:=stSlaveAxis.stPLCTONC.nSysType, pAixs:= ADR(stSlaveAxis));
+		//stSlaveAxis.stPLCTONC.eCommand:=E_Command.COMMAND_IDLE;  //03.11
+	  //  _fbDoneTon(IN:=FALSE, PT:=tcDoneTime , Q=> , ET=> );
+	    //_nStep:=30;
+		IF NOT stSlaveAxis.stAxisStatus.bSynchronizedMotion  THEN 
+		   stSlaveAxis.stPLCTONC.eCommand:=E_Command.COMMAND_IDLE;  //03.11
+		END_IF
+		IF bExecute  THEN 
+			_nStep:=0;
+			//_bInsertNodeOk:=FALSE;
+		ELSE
+			_nStep:=30;
+		END_IF
+		IF  stSlaveAxis.stAxisStatus.bSynchronizedMotion  THEN 
+			_bInsertNodeOk:=_fbAxisGroupList.M_InsertNode(aRoadRef:=GVL_MC.aRoadRef , nRoadId:=_nCuRoadID ,nSysType:=stSlaveAxis.stPLCTONC.nSysType, pAixs:= ADR(stSlaveAxis));
+			IF NOT _bInsertNodeOk THEN 
+				_nStep:=100;
+				nErrorId:=30402;
+			END_IF
+		END_IF
+    30:
+	    
+	   // _fbDoneTon(IN:=TRUE, PT:=tcDoneTime , Q=> , ET=> );
+       //IF _fbDoneTon.Q THEN
+		  bDone:=FALSE;
+		  _fbDoneTon(IN:=FALSE, PT:=tcDoneTime , Q=> , ET=> );
+		  _nStep:=0;
+		  _bInsertNodeOk:=FALSE;
+	  // END_IF
+	
+	100:
+	     bBusy:=FALSE;
+	     bError:=TRUE;
+	 
+	     stSlaveAxis.stAxisStatus.bError:=TRUE;
+	     _nStep:=0;
+	     _bInsertNodeOk:=FALSE;
+
+END_CASE]]></ST>
+    </Implementation>
+    <LineIds Name="FTS_MCGearOut_V2">
+      <LineId Id="3" Count="65" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

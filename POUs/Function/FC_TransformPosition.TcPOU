@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FC_TransformPosition" Id="{458779fb-96d1-4daa-8f50-1fb794fac52b}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION FC_TransformPosition : LREAL
+VAR_INPUT
+	fOffset: LREAL;
+	fPosition: LREAL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[FC_TransformPosition:=fOffset+fPosition;]]></ST>
+    </Implementation>
+    <LineIds Name="FC_TransformPosition">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

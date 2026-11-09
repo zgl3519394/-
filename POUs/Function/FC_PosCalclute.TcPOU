@@ -1,0 +1,105 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FC_PosCalclute" Id="{891c01cb-65b6-44fe-8466-3a191ba5cc0d}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION FC_PosCalclute : ST_Point
+VAR_INPUT
+	fTime: LREAL;
+	eDirection: E_Direction;
+	pPathdata: ARRAY[0..10] OF ST_PathSegment;
+END_VAR
+VAR
+	_nIndex: UINT;
+	_fVeloStart: LREAL;
+	_fVeloEnd: LREAL;
+	_fTargetVelo: LREAL;
+	_fDistance: LREAL;
+	_fAccleration: LREAL;
+	_fDeceleration: LREAL;
+	_fInitalPos: LREAL;
+	_fT1: LREAL;
+	_fT2: LREAL;
+	_fT3: LREAL;
+	_fT4: LREAL;
+	_fT5: LREAL;
+	_fCaclTime: LREAL;
+	_stPoint: ST_Point;
+	_stTime: ST_TimeRef;
+	_fbTrajectoryPlanning: FB_TrajectoryPlanning;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[_fT1:=pPathdata[0].fTotalTime;
+_fT2:=pPathdata[0].fTotalTime+pPathdata[1].fTotalTime;
+_fT3:=pPathdata[0].fTotalTime+pPathdata[1].fTotalTime+pPathdata[2].fTotalTime;
+_fT4:=pPathdata[0].fTotalTime+pPathdata[1].fTotalTime+pPathdata[2].fTotalTime+pPathdata[3].fTotalTime;
+_fT5:=pPathdata[0].fTotalTime+pPathdata[1].fTotalTime+pPathdata[2].fTotalTime+pPathdata[3].fTotalTime+pPathdata[4].fTotalTime;
+
+IF (fTime<=_fT1)THEN
+	_nIndex :=0;
+	_fCaclTime:=fTime;
+END_IF
+
+IF (fTime>_fT1)AND (fTime<=_fT2) THEN 
+    _nIndex :=1;
+	_fCaclTime:=fTime-_fT1;
+END_IF 
+IF (fTime>_fT2)AND (fTime<=_fT3) THEN 
+   _nIndex :=2;
+   _fCaclTime:=fTime-_fT2;
+	
+END_IF 
+IF (fTime>=_fT3)AND (fTime<_fT4) THEN 
+    _nIndex :=3;
+	_fCaclTime:=fTime-_fT3;
+	
+END_IF 
+IF (fTime>=_fT4)AND (fTime<_fT5) THEN 
+    _nIndex :=4;
+	_fCaclTime:=fTime-_fT4;
+	
+END_IF 
+
+_fVeloStart:=pPathdata[_nIndex].fStartVelo;
+_fVeloEnd:=pPathdata[_nIndex].fEndVelo;
+_fTargetVelo:=pPathdata[_nIndex].fExpVelo;
+IF (pPathdata[_nIndex].fEndPos>pPathdata[_nIndex].fStartPos)THEN 
+	_fDistance:=pPathdata[_nIndex].fEndPos-pPathdata[_nIndex].fStartPos;
+ELSE
+	_fDistance:=pPathdata[_nIndex].fStartPos-pPathdata[_nIndex].fEndPos;
+END_IF
+
+_fAccleration:=pPathdata[_nIndex].fAccleration;
+_fDeceleration:=pPathdata[_nIndex].fDeceleration;
+_fInitalPos:=pPathdata[_nIndex].fStartPos;
+
+_stTime:=_fbTrajectoryPlanning.M_TShaped(
+			fVeloStart:= _fVeloStart, 
+			fVeloEnd:=_fVeloEnd , 
+			fTargetVelo:=_fTargetVelo , 
+			fDistance:=_fDistance , 
+			fAccleration:=_fAccleration , 
+			fDeceleration:=_fDeceleration );
+  
+_stPoint:=_fbTrajectoryPlanning.M_GetPosition(
+			fTime:=_fCaclTime , 
+			fTa:=_stTime.fTa , 
+			fTv:=_stTime.fTv , 
+			fTd:=_stTime.fTd , 
+			fVeloStart:= _fVeloStart, 
+			fVeloEnd:=_fVeloEnd , 
+			fTargetVelo:=_fTargetVelo , 
+			fAccleration:=_fAccleration , 
+			fDeceleration := _fDeceleration,
+			fInitalPos:=_fInitalPos,
+            eDirection:= eDirection) ;
+	
+FC_PosCalclute:=_stPoint;]]></ST>
+    </Implementation>
+    <LineIds Name="FC_PosCalclute">
+      <LineId Id="3" Count="60" />
+      <LineId Id="92" Count="0" />
+      <LineId Id="64" Count="2" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

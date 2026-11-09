@@ -1,0 +1,168 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FTS_JsonReadTrack" Id="{2f05cafd-6d5d-4b5d-bd84-fcfd57eb45a9}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FTS_JsonReadTrack
+VAR_INPUT
+	bExecute: BOOL;
+	nMoverNum: UINT;
+	sJsonPath: STRING;
+END_VAR
+VAR_OUTPUT
+	bBusy: BOOL;
+	bDone: BOOL;
+	bError: BOOL;
+	nErrorId: UDINT;
+	hrErrorCode: HRESULT;
+END_VAR
+VAR_IN_OUT
+	///aMovers      :ARRAY [1..GVL.MAX_MOVER] OF ST_Mover;
+	aAxis: ARRAY[1..GVL_MC.MAX_MOVER] OF ST_Axis;
+END_VAR
+VAR
+	_bLoaded: BOOL;
+	_bLoad: BOOL;
+	_bHasMember: BOOL;
+	_bRoadNumErr :BOOL;
+	_nStep: INT;
+	_nArraySize: UINT;
+	_nIndex: UINT;
+	_nRoadID: UINT;
+	_fRoadLenth: LREAL;
+	_aRoad: ARRAY[1..GVL_MC.cRoadNum] OF ST_Road;
+	_sJsonRoot: SJsonValue;
+	_sJsonProp: SJsonValue;
+	_sJsonSubRoot: SJsonValue;
+	_pJsonValue: Tc3_JsonXml.PVOID;
+	_fbTrig: R_TRIG;
+	_fbJson: FB_JsonDomParser;
+	_fbDoneTon: TON;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[_fbTrig(CLK:=bExecute , Q=> );
+
+IF _fbTrig.Q AND(_nStep=0)THEN
+	_nStep:=10;
+	
+END_IF
+IF (nMoverNum=0)THEN 
+	nMoverNum:=10;
+END_IF
+
+CASE _nStep  OF 
+	0:
+	    IF NOT bExecute THEN 
+			bError:=FALSE;
+			nErrorId:=0;
+		END_IF
+	    RETURN ;
+ 
+
+    10:
+	     bBusy:=TRUE;
+		 bDone:=FALSE;   
+	     bError:=FALSE;
+		 nErrorId:=0;
+		 _bLoad:=TRUE;
+		 _nStep:=_nStep+10;
+		 
+		 
+    20:
+	     IF _bLoad  THEN
+			 _bLoaded :=_fbJson.LoadDocumentFromFile(sFile:=sJsonPath , bExec:=_bLoad , hrErrorCode=>hrErrorCode );
+		 ELSE
+			 _nStep:=_nStep+10;
+			 IF (hrErrorCode<>0) THEN
+		        _nStep:=100;
+			 END_IF 
+			 memset(ADR(_aRoad),SIZEOF(_aRoad),0);
+		 END_IF 
+		 
+    30:
+	     _sJsonRoot:=_fbJson.GetDocumentRoot();
+		 _sjsonProp := _fbJson.FindMemberPath(_sJsonRoot, 'road');
+         _nArraySize := UDINT_TO_UINT(_fbJson.GetArraySize( _sjsonProp));
+	        
+	     IF (_nArraySize<>0) THEN
+				FOR  _nIndex:=0 TO (_nArraySize-1)  DO
+				  _pJsonValue := _fbJson.GetArrayValueByIdx(_sjsonProp,_nIndex);
+				  _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'id');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_nRoadID:=STRING_TO_UINT(_fbJson.Getstring(_sJsonSubRoot));
+				  END_IF
+				  _sJsonSubRoot:=_fbJson.FindMemberPath(_pJsonValue, 'length');
+				  IF (_sJsonSubRoot <> 0) THEN
+					_fRoadLenth:=STRING_TO_LREAL(_fbJson.Getstring(_sJsonSubRoot));
+				  END_IF
+				  //_aRoad[_nIndex+1].nId:=_nRoadID;          ///01.28 前面路段空
+				  //_aRoad[_nIndex+1].fLength:=_fRoadLenth;
+				  IF _nRoadID<=GVL_MC.cRoadNum THEN
+				     _aRoad[_nRoadID].nId:=_nRoadID;
+				     _aRoad[_nRoadID].fLength:=_fRoadLenth;
+				  ELSE
+					  _bRoadNumErr:=TRUE;
+					  EXIT;
+				  END_IF
+				  
+				END_FOR
+		END_IF 
+			
+		FOR  _nIndex:=1 TO GVL_MC.MAX_MOVER  DO
+		//FOR  _nIndex:=1 TO nMoverNum  DO
+				aAxis[_nIndex].stAxisParam.stRoadParam.aRoad:=_aRoad;
+				aAxis[_nIndex].stNcTOPLC.fModuloFactor:=_aRoad[1].fLength;
+		END_FOR
+		
+		  _nStep:=_nStep+10;
+		  IF _bRoadNumErr THEN
+			  _nStep:=100;
+			   _bRoadNumErr:=FALSE;
+			   hrErrorCode:=32599;
+		  END_IF
+		    
+	    
+   40:
+        bBusy:=FALSE;
+	    bDone:=TRUE; 
+		_fbDoneTon(IN:=FALSE , PT:= T#100MS, Q=> , ET=> );
+	   _nStep:=_nStep+10;
+   
+   50:
+        _fbDoneTon(IN:=TRUE , PT:= T#100MS, Q=> , ET=> );
+		IF _fbDoneTon.Q  THEN 
+	        bDone:=FALSE;   
+            _nStep:=0;
+			_fbDoneTon(IN:=FALSE , PT:= T#100MS, Q=> , ET=> );
+        END_IF 
+
+   100:  // error handle 
+         bBusy:=FALSE;
+		 bDone:=FALSE;   
+	     bError:=TRUE;
+		 nErrorId:=DINT_TO_UDINT(hrErrorCode);
+         _nStep:=0;
+
+END_CASE]]></ST>
+    </Implementation>
+    <LineIds Name="FTS_JsonReadTrack">
+      <LineId Id="3" Count="35" />
+      <LineId Id="141" Count="0" />
+      <LineId Id="39" Count="19" />
+      <LineId Id="128" Count="0" />
+      <LineId Id="126" Count="1" />
+      <LineId Id="130" Count="0" />
+      <LineId Id="132" Count="0" />
+      <LineId Id="131" Count="0" />
+      <LineId Id="129" Count="0" />
+      <LineId Id="59" Count="8" />
+      <LineId Id="134" Count="0" />
+      <LineId Id="68" Count="0" />
+      <LineId Id="136" Count="1" />
+      <LineId Id="139" Count="1" />
+      <LineId Id="138" Count="0" />
+      <LineId Id="135" Count="0" />
+      <LineId Id="69" Count="21" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

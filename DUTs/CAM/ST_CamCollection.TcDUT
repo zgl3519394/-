@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_CamCollection" Id="{e2b3015a-3f93-4be2-9eb9-765c1602e19f}">
+    <Declaration><![CDATA[TYPE ST_CamCollection :
+STRUCT
+	/// 新数据 
+	bPeriodic: BOOL;
+	bMasterAbsolute: BOOL;
+	bSlaveAbsolute: BOOL;
+	nPointType: UINT;
+	nElements: UINT;
+	nMasterId: UINT;
+	nTableId: UDINT;
+	///从轴周期
+	fSlaveCycle: LREAL;
+	fMasterStartPos: LREAL;
+	fMasterEndPos: LREAL;
+	fSlaveStartPos: LREAL;
+	fSlaveEndPos: LREAL;
+	fMasterMaxVelo: LREAL;
+	stCamXY: ST_CamXY;
+	astCamXYVA: ARRAY[0..255] OF ST_CamXYVA;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

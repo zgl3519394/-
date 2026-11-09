@@ -1,0 +1,1233 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_TrajectoryPlanning" Id="{53371cae-53ed-49cc-a6f4-df33eaa9b01c}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_TrajectoryPlanning
+VAR_INPUT
+	strStartPoint: ST_Point;
+	strEndPoint: ST_Point;
+END_VAR
+VAR
+	_fTa: LREAL;
+	_fTv: LREAL;
+	_fTd: LREAL;
+	_stTimeInfo: ST_TimeRef;
+	_stPolynom5Factor: ST_Polynom5Factor;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Property Name="Get_TimeRef" Id="{07b6d02b-7cf4-4955-a19e-b820507b9f43}">
+      <Declaration><![CDATA[PROPERTY Get_TimeRef : ST_TimeRef
+]]></Declaration>
+      <Get Name="Get" Id="{46056bd1-2f07-4934-9a37-c68159ccf567}">
+        <Declaration><![CDATA[]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[Get_TimeRef.fTa:=_fTa;
+Get_TimeRef.fTv:=_fTv;
+Get_TimeRef.fTa:=_fTd;
+
+
+Get_TimeRef.fT1:=_fTa;
+Get_TimeRef.fT2:=_fTv+_fTa;
+Get_TimeRef.fT3:=_fTv+_fTa+_fTd;]]></ST>
+        </Implementation>
+      </Get>
+      <Set Name="Set" Id="{0efa6e42-b50a-4098-a5d3-6385a5160dda}">
+        <Declaration><![CDATA[]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[]]></ST>
+        </Implementation>
+      </Set>
+    </Property>
+    <Method Name="M_GetPosition" Id="{9435b2b3-b7fa-499c-adf7-843e842c2b76}">
+      <Declaration><![CDATA[METHOD M_GetPosition : ST_Point
+VAR_INPUT
+	fTime: LREAL;
+	fTa: LREAL;
+	fTv: LREAL;
+	fTd: LREAL;
+	fVeloStart: LREAL;
+	fVeloEnd: LREAL;
+	fTargetVelo: LREAL;
+	fAccleration: LREAL;
+	///02.21
+	fDeceleration: LREAL;
+	fInitalPos: LREAL;
+	eDirection: E_Direction;
+END_VAR
+VAR
+	_fT1: LREAL;
+	_fT2: LREAL;
+	_fT3: LREAL;
+	_fVelo1: LREAL;
+	_fVelo2: LREAL;
+	_fDis1: LREAL;
+	_fDis2: LREAL;
+	_fDis3: LREAL;
+	_fPostion: LREAL;
+	_fVelocity: LREAL;
+	_fAccleration: LREAL;
+	_fTemp_t: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[(*_fT1:= fTa;
+_fT2:= fTv+fTa;
+_fT3:= fTd+_fT2;   
+
+IF(eDirection=E_Direction.DIRECTION_POSITIVE)THEN 
+	IF(fTargetVelo>fVeloStart) THEN 
+		_fVelo1:= fVeloStart+fAccleration*_fT1;
+		_fDis1 := fVeloStart*_fT1+0.5*fAccleration*_fT1*_fT1+fInitalPos;
+		
+	ELSE
+		_fVelo1 := fVeloStart-fAccleration*_fT1;
+		_fDis1 := fVeloStart*_fT1-0.5*fAccleration*_fT1*_fT1+fInitalPos;
+		
+	END_IF
+	_fVelo2:= _fVelo1;
+	
+	_fDis2 := _fDis1+_fVelo2*(_fT2-_fT1);
+	IF(fTargetVelo<fVeloEnd) THEN
+	   _fDis3 :=_fDis2+_fVelo2*(_fT3-_fT2)+0.5*fAccleration*(_fT3-_fT2)*(_fT3-_fT2);
+	ELSE
+		_fDis3 :=_fDis2+_fVelo2*(_fT3-_fT2)-0.5*fAccleration*(_fT3-_fT2)*(_fT3-_fT2);
+	END_IF
+	
+	IF (fTime>_fT3)THEN
+		
+	   M_GetPosition.fPosition:=_fDis3;
+	   M_GetPosition.fVelocity:=fVeloEnd;
+	   M_GetPosition.fAccleration:=0.0;
+	
+	   RETURN;
+	END_IF
+	
+	IF (fTime>=0)AND(fTime<=_fT1) THEN
+			//temp_t = t;
+			IF(fTargetVelo>fVeloStart) THEN
+				_fAccleration := fAccleration;
+			else
+				_fAccleration := -fAccleration;
+			END_IF
+			_fVelocity := fVeloStart+_fAccleration*fTime;
+			_fPostion := fVeloStart*fTime+0.5*_fAccleration*fTime*fTime+fInitalPos;
+	ELSIF (fTime <= _fT2) THEN
+			_fTemp_t  := fTime-_fT1;
+			_fAccleration := 0.0;
+			_fVelocity := _fVelo2;
+			_fPostion := _fDis1+_fVelo2*_fTemp_t ;
+	
+	ELSE
+			_fTemp_t  := fTime-_fT2;
+			IF(fTargetVelo<fVeloEnd) THEN
+				_fAccleration := fAccleration;
+			else
+				_fAccleration := -fAccleration;
+			END_IF
+		   _fVelocity := _fVelo2+_fAccleration*_fTemp_t ; 
+		   _fPostion := _fDis2+_fVelo2*_fTemp_t+0.5*_fAccleration*_fTemp_t *_fTemp_t;      
+	END_IF 
+ELSE        //negative 
+	IF(fTargetVelo>fVeloStart) THEN 
+		 _fVelo1:= fVeloStart+fAccleration*_fT1;
+		 _fDis1 := fInitalPos-(fVeloStart*_fT1+0.5*fAccleration*_fT1*_fT1);
+		
+	ELSE
+		_fVelo1 := fVeloStart-fAccleration*_fT1;
+		_fDis1 := fInitalPos-(fVeloStart*_fT1-0.5*fAccleration*_fT1*_fT1);
+		
+	END_IF
+	_fVelo2:= _fVelo1;
+	
+	_fDis2 := _fDis1-_fVelo2*(_fT2-_fT1);
+	IF(fTargetVelo<fVeloEnd) THEN
+	   _fDis3 :=_fDis2-_fVelo2*(_fT3-_fT2)-0.5*fAccleration*(_fT3-_fT2)*(_fT3-_fT2);
+	ELSE
+		_fDis3 :=_fDis2-_fVelo2*(_fT3-_fT2)+0.5*fAccleration*(_fT3-_fT2)*(_fT3-_fT2);
+	END_IF
+	
+	IF (fTime>_fT3)THEN
+		
+	   M_GetPosition.fPosition:=_fDis3;
+	   M_GetPosition.fVelocity:=fVeloEnd;
+	   M_GetPosition.fAccleration:=0.0;
+	
+	   RETURN;
+	END_IF
+	
+	IF (fTime>=0)AND(fTime<=_fT1) THEN
+			
+			IF(fTargetVelo>fVeloStart) THEN
+				_fAccleration := fAccleration;
+			else
+				_fAccleration := -fAccleration;
+			END_IF
+			_fVelocity := fVeloStart+_fAccleration*fTime;
+			_fPostion := fInitalPos-(fVeloStart*fTime+0.5*_fAccleration*fTime*fTime);
+	ELSIF (fTime <= _fT2) THEN
+			_fTemp_t  := fTime-_fT1;
+			_fAccleration := 0.0;
+			_fVelocity := _fVelo2;
+			_fPostion := _fDis1-_fVelo2*_fTemp_t ;
+	
+	ELSE
+			_fTemp_t  := fTime-_fT2;
+			IF(fTargetVelo<fVeloEnd) THEN
+				_fAccleration := fAccleration;
+			else
+				_fAccleration := -fAccleration;
+			END_IF
+		   _fVelocity := _fVelo2+_fAccleration*_fTemp_t ; 
+		   _fPostion := _fDis2-(_fVelo2*_fTemp_t+0.5*_fAccleration*_fTemp_t *_fTemp_t);      
+	END_IF 
+
+END_IF
+M_GetPosition.fPosition:=_fPostion;
+M_GetPosition.fVelocity:=_fVelocity;
+M_GetPosition.fAccleration:=_fAccleration;*)
+
+_fT1:= fTa;
+_fT2:= fTv+fTa;
+_fT3:= fTd+_fT2;   
+
+IF(eDirection=E_Direction.DIRECTION_POSITIVE)THEN 
+	IF(fTargetVelo>fVeloStart) THEN 
+		_fVelo1:= fVeloStart+fAccleration*_fT1;
+		_fDis1 := fVeloStart*_fT1+0.5*fAccleration*_fT1*_fT1+fInitalPos;
+		
+	ELSE
+		//_fVelo1 := fVeloStart-fAccleration*_fT1;
+		//_fDis1 := fVeloStart*_fT1-0.5*fAccleration*_fT1*_fT1+fInitalPos;
+		_fVelo1 := fVeloStart-fDeceleration*_fT1;
+		_fDis1 := fVeloStart*_fT1-0.5*fDeceleration*_fT1*_fT1+fInitalPos;
+	END_IF
+	_fVelo2:= _fVelo1;
+	
+	_fDis2 := _fDis1+_fVelo2*(_fT2-_fT1);
+	IF(fTargetVelo<fVeloEnd) THEN
+	   _fDis3 :=_fDis2+_fVelo2*(_fT3-_fT2)+0.5*fAccleration*(_fT3-_fT2)*(_fT3-_fT2);
+	ELSE
+		//_fDis3 :=_fDis2+_fVelo2*(_fT3-_fT2)-0.5*fAccleration*(_fT3-_fT2)*(_fT3-_fT2);
+		_fDis3 :=_fDis2+_fVelo2*(_fT3-_fT2)-0.5*fDeceleration*(_fT3-_fT2)*(_fT3-_fT2);
+	END_IF
+	
+	IF (fTime>_fT3)THEN
+		
+	   M_GetPosition.fPosition:=_fDis3;
+	   M_GetPosition.fVelocity:=fVeloEnd;
+	   M_GetPosition.fAccleration:=0.0;
+	
+	   RETURN;
+	END_IF
+	
+	IF (fTime>=0)AND(fTime<=_fT1) THEN
+			//temp_t = t;
+			IF(fTargetVelo>fVeloStart) THEN
+				_fAccleration := fAccleration;
+			else
+				//_fAccleration := -fAccleration;
+			    _fAccleration := -fDeceleration;
+			END_IF
+			_fVelocity := fVeloStart+_fAccleration*fTime;
+			_fPostion := fVeloStart*fTime+0.5*_fAccleration*fTime*fTime+fInitalPos;
+	ELSIF (fTime <= _fT2) THEN
+			_fTemp_t  := fTime-_fT1;
+			_fAccleration := 0.0;
+			_fVelocity := _fVelo2;
+			_fPostion := _fDis1+_fVelo2*_fTemp_t ;
+	
+	ELSE
+			_fTemp_t  := fTime-_fT2;
+			IF(fTargetVelo<fVeloEnd) THEN
+				_fAccleration := fAccleration;
+			else
+				//_fAccleration := -fAccleration;
+				_fAccleration := -fDeceleration;
+			END_IF
+		   _fVelocity := _fVelo2+_fAccleration*_fTemp_t ; 
+		   _fPostion := _fDis2+_fVelo2*_fTemp_t+0.5*_fAccleration*_fTemp_t *_fTemp_t;      
+	END_IF 
+ELSE        //negative 
+	IF(fTargetVelo>fVeloStart) THEN 
+		 _fVelo1:= fVeloStart+fAccleration*_fT1;
+		 _fDis1 := fInitalPos-(fVeloStart*_fT1+0.5*fAccleration*_fT1*_fT1);
+		
+	ELSE
+		//_fVelo1 := fVeloStart-fAccleration*_fT1;
+		//_fDis1 := fInitalPos-(fVeloStart*_fT1-0.5*fAccleration*_fT1*_fT1);
+		_fVelo1 := fVeloStart-fDeceleration*_fT1;
+		_fDis1 := fInitalPos-(fVeloStart*_fT1-0.5*fDeceleration*_fT1*_fT1);
+	END_IF
+	_fVelo2:= _fVelo1;
+	
+	_fDis2 := _fDis1-_fVelo2*(_fT2-_fT1);
+	IF(fTargetVelo<fVeloEnd) THEN
+	   _fDis3 :=_fDis2-_fVelo2*(_fT3-_fT2)-0.5*fAccleration*(_fT3-_fT2)*(_fT3-_fT2);
+	ELSE
+		//_fDis3 :=_fDis2-_fVelo2*(_fT3-_fT2)+0.5*fAccleration*(_fT3-_fT2)*(_fT3-_fT2);
+		_fDis3 :=_fDis2-_fVelo2*(_fT3-_fT2)+0.5*fDeceleration*(_fT3-_fT2)*(_fT3-_fT2);
+	END_IF
+	
+	IF (fTime>_fT3)THEN
+		
+	   M_GetPosition.fPosition:=_fDis3;
+	   M_GetPosition.fVelocity:=fVeloEnd;
+	   M_GetPosition.fAccleration:=0.0;
+	
+	   RETURN;
+	END_IF
+	
+	IF (fTime>=0)AND(fTime<=_fT1) THEN
+			
+			IF(fTargetVelo>fVeloStart) THEN
+				_fAccleration := fAccleration;
+			else
+				//_fAccleration := -fAccleration;
+				_fAccleration := -fDeceleration;
+			END_IF
+			_fVelocity := fVeloStart+_fAccleration*fTime;
+			_fPostion := fInitalPos-(fVeloStart*fTime+0.5*_fAccleration*fTime*fTime);
+	ELSIF (fTime <= _fT2) THEN
+			_fTemp_t  := fTime-_fT1;
+			_fAccleration := 0.0;
+			_fVelocity := _fVelo2;
+			_fPostion := _fDis1-_fVelo2*_fTemp_t ;
+	
+	ELSE
+			_fTemp_t  := fTime-_fT2;
+			IF(fTargetVelo<fVeloEnd) THEN
+				_fAccleration := fAccleration;
+			else
+				//_fAccleration := -fAccleration;
+				_fAccleration := -fDeceleration;
+			END_IF
+		   _fVelocity := _fVelo2+_fAccleration*_fTemp_t ; 
+		   _fPostion := _fDis2-(_fVelo2*_fTemp_t+0.5*_fAccleration*_fTemp_t *_fTemp_t);      
+	END_IF 
+
+END_IF
+M_GetPosition.fPosition:=_fPostion;
+M_GetPosition.fVelocity:=_fVelocity;
+M_GetPosition.fAccleration:=_fAccleration;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="M_Ploynom3" Id="{2dbaa54c-05e5-42eb-8760-ee3f9b59f096}">
+      <Declaration><![CDATA[METHOD M_Ploynom3 : ST_Polynom5Factor
+VAR_INPUT
+	fTheat_Start: LREAL;
+	fTheat_End: LREAL;
+END_VAR
+VAR
+	_fH: LREAL;
+	_fQ0: LREAL;
+	_fQ1: LREAL;
+	_fV0: LREAL;
+	_fV1: LREAL;
+	_fAcc0: LREAL;
+	_fAcc1: LREAL;
+	_fQ: LREAL;
+	_fV: LREAL;
+	_fAcc: LREAL;
+	_fA: LREAL;
+	_fB: LREAL;
+	_fC: LREAL;
+	_fT2: LREAL;
+	_fT3: LREAL;
+	_fT4: LREAL;
+	_fT5: LREAL;
+	_fDealt: LREAL;
+	_fDealTheat: LREAL;
+	_stPolynom5Factor: ST_Polynom5Factor;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// f=a0+a1*x+a2*x*x+a3*x*x*x,x时自变量，即主轴的位置
+// 将主轴的预同步位置和同步位置区间归一化，x[0,1]
+_fQ0:=strStartPoint.fPosition;
+_fQ1:=strEndPoint.fPosition;
+
+_fDealTheat:=fTheat_End-fTheat_Start;
+
+_fV0:=strStartPoint.fVelocity;
+_fV1:=strEndPoint.fVelocity;
+
+_fH:=_fQ1-_fQ0;
+
+
+_stPolynom5Factor.fA0:=_fQ0;
+_stPolynom5Factor.fA1:=_fV0;
+
+IF (_fDealTheat<>0)THEN 
+	_fA:=3*_fH-(_fV1+2*_fV0)*_fDealTheat;
+	_fT2:=_fDealTheat*_fDealTheat;
+	_stPolynom5Factor.fA2:=_fA/_fT2;
+	
+	_fB:=-2*_fH+(_fV1+_fV0)*_fDealTheat;
+	_fT3:=_fDealTheat*_fDealTheat*_fDealTheat;
+	_stPolynom5Factor.fA3:=_fB/_fT3;
+END_IF 
+M_Ploynom3:=_stPolynom5Factor;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="M_Ploynom5" Id="{5af2bf9f-816b-4407-a906-617632ae00db}">
+      <Declaration><![CDATA[METHOD M_Ploynom5 : ST_Polynom5Factor
+VAR_INPUT
+	fTheat_Start: LREAL;
+	fTheat_End: LREAL;
+END_VAR
+VAR
+	_fH: LREAL;
+	_fQ0: LREAL;
+	_fQ1: LREAL;
+	_fV0: LREAL;
+	_fV1: LREAL;
+	_fAcc0: LREAL;
+	_fAcc1: LREAL;
+	_fQ: LREAL;
+	_fV: LREAL;
+	_fAcc: LREAL;
+	_fA: LREAL;
+	_fB: LREAL;
+	_fC: LREAL;
+	_fT3: LREAL;
+	_fT4: LREAL;
+	_fT5: LREAL;
+	_fDealt: LREAL;
+	_fDealTheat: LREAL;
+	_stPolynom5Factor: ST_Polynom5Factor;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[_fQ0:=strStartPoint.fPosition;
+_fQ1:=strEndPoint.fPosition;
+
+_fDealTheat:=fTheat_End-fTheat_Start;
+
+_fV0:=strStartPoint.fVelocity;
+_fV1:=strEndPoint.fVelocity;
+_fAcc0 :=strStartPoint.fAccleration;
+_fAcc1 :=strEndPoint.fAccleration;
+_fH:=_fQ1-_fQ0;
+
+
+_stPolynom5Factor.fA0:=_fQ0;
+_stPolynom5Factor.fA1:=_fV0;
+_stPolynom5Factor.fA2:=0.5*_fAcc0;
+
+_fA:=20*_fH-(8*_fV1+12*_fV0)*_fDealTheat+(_fAcc1-3*_fAcc0)*(fTheat_Start*fTheat_Start+fTheat_End*fTheat_End)+(6*_fAcc0-2*_fAcc1)*fTheat_Start*fTheat_End;
+_fT3:=_fDealTheat*_fDealTheat*_fDealTheat;
+_stPolynom5Factor.fA3:=0.5*_fA/_fT3;
+
+_fB :=-30*_fH+(14*_fV1+16*_fV0)*_fDealTheat+(2*_fAcc1-3*_fAcc0)*(fTheat_Start*fTheat_Start+fTheat_End*fTheat_End)+(6*_fAcc0-4*_fAcc1)*fTheat_Start*fTheat_End;
+_fT4:=_fDealTheat*_fDealTheat*_fDealTheat*_fDealTheat;
+_stPolynom5Factor.fA4:=0.5*_fB/_fT4;
+
+_fC:=12*_fH-6*(_fV1+_fV0)*_fDealTheat+(_fAcc1-_fAcc0)*(fTheat_Start*fTheat_Start+fTheat_End*fTheat_End)+(2*_fAcc0-2*_fAcc1)*fTheat_Start*fTheat_End;
+_fT5:=_fDealTheat*_fDealTheat*_fDealTheat*_fDealTheat*_fDealTheat;
+_stPolynom5Factor.fA5:=0.5*_fC/_fT5;
+
+M_Ploynom5:=_stPolynom5Factor;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="M_SShaped" Id="{b4314ea8-1ae0-4db5-a283-6d5c5aac92c1}">
+      <Declaration><![CDATA[METHOD M_SShaped : ST_SParam
+VAR_INPUT
+	fStartPos: LREAL;
+	fEndPos: LREAL;
+	fStartVelo: LREAL;
+	fEndVelo: LREAL;
+	fTargetVelo: LREAL;
+	fTargetAcc: LREAL;
+	fTargetJerk: LREAL;
+END_VAR
+VAR
+	_nSign: INT;
+	_fQ_0: LREAL;
+	_fQ_1: LREAL;
+	_fV_0: LREAL;
+	_fV_1: LREAL;
+	_fVmax: LREAL;
+	_fVmin: LREAL;
+	_fAmax: LREAL;
+	_fAmin: LREAL;
+	_fJmax: LREAL;
+	_fJmin: LREAL;
+	_fV_max: LREAL;
+	_fV_min: LREAL;
+	_fA_max: LREAL;
+	_fA_min: LREAL;
+	_fJ_max: LREAL;
+	_fJ_min: LREAL;
+	_fVmin_Cal: LREAL;
+	_fAmax_Cal: LREAL;
+	_fAmin_Cal: LREAL;
+	_fTj1: LREAL;
+	_fTj2: LREAL;
+	_fTa: LREAL;
+	_fTd: LREAL;
+	_fTv: LREAL;
+	///运行加速段加速度
+	_fA_LimAcc: LREAL;
+	///运行减速段加速度
+	_fA_LimDec: LREAL;
+	///运动最大速度
+	_fVlim: LREAL;
+	_fSa: LREAL;
+	_fSd: LREAL;
+	_fS: LREAL;
+	_fT: LREAL;
+	_fDelta: LREAL;
+	_fDelta_1: LREAL;
+	_fA_max4: LREAL;
+	_fJ_max2: LREAL;
+	_fA2J: LREAL;
+	_fLmda: LREAL;
+	_fA: LREAL;
+	_fB: LREAL;
+	_fC: LREAL;
+	_fV: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[_nSign:=LREAL_TO_INT((fEndPos-fStartPos)/ABS(fEndPos-fStartPos));
+
+_fVmax:=fTargetVelo;
+_fVmin:=-fTargetVelo;
+_fAmax:=fTargetAcc;
+_fAmin:=-fTargetAcc;
+_fJmax:=fTargetJerk;
+_fJmin:=-fTargetJerk;
+
+_fQ_0:=fStartPos*_nSign;
+_fQ_1:=fEndPos*_nSign;
+_fV_0:=fStartVelo;
+_fV_1:=fEndVelo;
+
+_fV_max:=0.5*(_nSign+1)*_fVmax+0.5*(_nSign-1)*_fVmin;
+_fV_min:=0.5*(_nSign+1)*_fVmin+0.5*(_nSign-1)*_fVmax;
+_fA_max:=0.5*(_nSign+1)*_fAmax+0.5*(_nSign-1)*_fAmin;
+_fA_min:=0.5*(_nSign+1)*_fAmin+0.5*(_nSign-1)*_fAmax;
+_fJ_max:=0.5*(_nSign+1)*_fJmax+0.5*(_nSign-1)*_fJmin;
+_fJ_min:=0.5*(_nSign+1)*_fJmin+0.5*(_nSign-1)*_fJmax;
+
+(*****判断目标加速度是否可达******)
+//加速段
+_fVmin_Cal:=_fA_max*_fA_max/_fJ_max;
+IF (ABS(_fV_max-_fV_0)>=_fVmin_Cal) THEN     //加速度可达
+   _fTj1:=_fA_max/_fJ_max;
+   _fTa:=(_fV_max-_fV_0)/_fA_max +_fTj1;
+   IF (_fV_max<_fV_0)THEN 
+	    _fTa:=ABS(_fV_max-_fV_0)/_fA_max +_fTj1;
+   END_IF
+   _fA_LimAcc:=_fA_max;
+ELSE
+   _fA_LimAcc:=SQRT(ABS(_fV_max-_fV_0)*_fJ_max);
+   _fTj1:=_fA_LimAcc/_fJ_max;
+   _fTa:=2*_fTj1;
+END_IF
+//减速段
+
+IF (ABS(_fV_max-_fV_1)>=_fVmin_Cal) THEN     //加速度可达
+   _fTj2:=_fA_max/_fJ_max;
+   _fTd:=(_fV_max-_fV_1)/_fA_max +_fTj2;
+   IF (_fV_max<_fV_1)THEN
+	   _fTd:=ABS(_fV_max-_fV_1)/_fA_max +_fTj2;
+   END_IF
+   _fA_LimDec:=-_fA_max;
+ELSE
+   _fA_LimAcc:=SQRT(ABS(_fV_max-_fV_1)*_fJ_max);
+   _fA_LimDec:=-_fA_LimAcc;
+   _fTj2:=_fA_LimAcc/_fJ_max;
+   _fTd:=2*_fTj2;
+END_IF
+
+// 匀速段时间计算
+_fSa:=0.5*_fTa*(_fV_max+_fV_0);
+_fSd:=0.5*_fTd*(_fV_max+_fV_1);
+_fS:=_fQ_1-_fQ_0;
+_fTv:=(LTRUNC(_fS)-LTRUNC(_fSa)-LTRUNC(_fSd))/_fV_max;
+
+(*********判断是否存在匀速段*********
+1. fTa>=2*Tj1  加速段存在匀加速段，
+   fTd>=2*Tj2  减速段存在匀减速段
+
+2. fTa<2*Tj1 加速段不存在匀加速段
+   fTd<2*Tj2 减速段不存在匀减速段
+3. fTa<0 或 fTd<0 ,
+   fTa<0 不存在加速段，只有减速段  
+   fTd<0 不存在减速段，只有加速段 
+******)
+
+IF (_fTv>=0) THEN       //存在匀速段
+	_fVlim:=_fV_max;
+    _fT:=_fTa+_fTv+_fTd;
+    
+ELSE                   //不存在匀速段,即达不到设置的最大速度  假设最大加速度可达
+	_fTj1:=_fA_max/_fJ_max;
+    _fTj2:=_fTj1;
+	_fTv:=0;
+	_fA_max4:=_fA_max*_fA_max*_fA_max*_fA_max;
+	_fJ_max2:=_fJ_max*_fJ_max;
+	_fA :=2*_fA_max*(_fV_0+_fV_1)/_fJ_max;
+	_fDelta:=_fA_max4/_fJ_max2+2*(_fV_0*_fV_0+_fV_1*_fV_1)+_fA_max*(4*_fS-_fA);
+	
+	_fA2J:=_fA_max*_fA_max/_fJ_max;
+	_fV:=-0.5*_fA2J+0.5*SQRT(_fDelta);
+	_fTa:=(0.5*_fA2J-_fV_0+0.5*SQRT(_fDelta))/_fA_max;
+	_fTd:=(0.5*_fA2J-_fV_1+0.5*SQRT(_fDelta))/_fA_max;
+	
+	IF (_fTa>=2*_fTj1)AND(_fTd>=2*_fTj2) THEN     //加速段和减速段均能达到最大加速度
+		_fA_LimAcc:=_fA_max;
+		_fA_LimDec:=-_fA_max;
+	    _fVlim:=_fV_0+_fA_max*(_fTa-_fTj1);
+	    _fT:=_fTa+_fTv+_fTd;
+	ELSIF (_fTa<0)OR(_fTd<0)THEN          //只有加速段或减速段
+		IF (_fTa<0)THEN                  //只有减速段
+			_fTa:=0;
+			_fTj1:=0;
+			_fA_LimAcc:=0;
+			//_fVlim:=_fV_0;
+			_fTd:=2*_fS/(_fV_0+_fV_1);
+			_fB:=(_fV_0+_fV_1)*(_fV_0+_fV_1)*(_fV_1-_fV_0);
+			_fDelta_1:=_fJ_max*_fJ_max*_fS*_fS+_fJ_max*_fB;
+			_fC :=_fJ_max*(_fV_0+_fV_1);
+			_fTj2:=(_fJ_max*_fS-SQRT(_fDelta_1))/_fC;
+			_fA_LimDec:=-_fJ_max*_fTj2;
+			_fVlim:=_fV_1-(_fTd-_fTj2)*_fA_LimDec;
+		    _fT:=_fTa+_fTv+_fTd;
+		ELSIF (_fTd<0)THEN             //只有加速段
+			_fTd:=0;
+			_fTj2:=0;
+			_fA_LimDec:=0;
+			//_fVlim:=_fV_1;
+			_fTa:=2*_fS/(_fV_0+_fV_1);
+			_fB:=(_fV_0+_fV_1)*(_fV_0+_fV_1)*(_fV_1-_fV_0);
+			_fDelta_1:=_fJ_max*_fJ_max*_fS*_fS-_fJ_max*_fB;
+			_fC :=_fJ_max*(_fV_0+_fV_1);
+			_fTj1:=(_fJ_max*_fS-SQRT(_fDelta_1))/_fC;
+			_fA_LimAcc:=_fJ_max*_fTj1;
+			_fVlim:=_fV_0+(_fTa-_fTj1)*_fA_LimAcc;
+			_fT:=_fTa+_fTv+_fTd;
+		ELSE
+			;
+		END_IF
+	
+	ELSE
+		WHILE((_fTa<2*_fTj1)OR(_fTd<2*_fTj2)) DO
+			_fLmda:=0.9;
+			_fA_max:=_fLmda*_fA_max;
+			_fTj1:=_fA_max/_fJ_max;
+            _fTj2:=_fTj1;
+	        _fTv:=0;
+	        _fA_max4:=_fA_max*_fA_max*_fA_max*_fA_max;
+	        _fJ_max2:=_fJ_max*_fJ_max;
+			_fA :=2*_fA_max*(_fV_0+_fV_1)/_fJ_max;
+	        _fDelta:=_fA_max4/_fJ_max2+2*(_fV_0*_fV_0+_fV_1*_fV_1)+_fA_max*(4*_fS-_fA);
+			_fA2J:=_fA_max*_fA_max/_fJ_max;
+	        _fV:=-0.5*_fA2J+0.5*SQRT(_fDelta);
+	        _fTa:=(0.5*_fA2J-_fV_0+0.5*SQRT(_fDelta))/_fA_max;
+	        _fTd:=(0.5*_fA2J-_fV_1+0.5*SQRT(_fDelta))/_fA_max;
+			IF (_fTa>=2*_fTj1)AND(_fTd>=2*_fTj2) THEN     //加速段和减速段均能达到最大加速度
+				_fA_LimAcc:=_fA_max;
+				_fA_LimDec:=-_fA_max;
+				_fVlim:=_fV_0+_fA_max*(_fTa-_fTj1);
+				_fT:=_fTa+_fTv+_fTd;
+			    EXIT;
+			ELSIF (_fTa<0)OR(_fTd<0)THEN        //只有加速段或减速段  
+				IF (_fTa<0)THEN                //只有减速段
+					_fTa:=0;
+					_fTj1:=0;
+					_fA_LimAcc:=0;
+					//_fVlim:=_fV_0;
+					_fTd:=2*_fS/(_fV_0+_fV_1);
+					_fB:=(_fV_0+_fV_1)*(_fV_0+_fV_1)*ABS(_fV_1-_fV_0);
+					_fDelta_1:=_fJ_max*_fJ_max*_fS*_fS+_fJ_max*_fB;
+					_fC :=_fJ_max*(_fV_0+_fV_1);
+					_fTj2:=(_fJ_max*_fS-SQRT(_fDelta_1))/_fC;
+					IF (_fTj2<0)THEN 
+						_fTj2:=(_fJ_max*_fS+SQRT(_fDelta_1))/_fC;
+					END_IF
+					_fA_LimDec:=-_fJ_max*_fTj2;
+					_fVlim:=_fV_1-(_fTd-_fTj2)*_fA_LimDec;
+					_fT:=_fTa+_fTv+_fTd;
+				    EXIT;
+				ELSIF (_fTd<0)THEN              //只有加速段
+					_fTd:=0;
+					_fTj2:=0;
+					_fA_LimDec:=0;
+					//_fVlim:=_fV_1;
+					_fTa:=2*_fS/(_fV_0+_fV_1);
+					_fB:=(_fV_0+_fV_1)*(_fV_0+_fV_1)*ABS(_fV_1-_fV_0);
+					_fDelta_1:=_fJ_max*_fJ_max*_fS*_fS-_fJ_max*_fB;
+					_fC :=_fJ_max*(_fV_0+_fV_1);
+					_fTj1:=(_fJ_max*_fS-SQRT(_fDelta_1))/_fC;
+					IF (_fTj1<0)THEN 
+						_fTj1:=(_fJ_max*_fS+SQRT(_fDelta_1))/_fC;
+					END_IF
+					_fA_LimAcc:=_fJ_max*_fTj1;
+					_fVlim:=_fV_0+(_fTa-_fTj1)*_fA_LimAcc;
+					_fT:=_fTa+_fTv+_fTd;
+					EXIT;
+				ELSE
+					;
+				END_IF
+			ELSE
+				;
+			END_IF
+			
+		END_WHILE
+	
+	END_IF
+END_IF
+
+M_SShaped.fQ_0:=_fQ_0*_nSign;
+M_SShaped.fQ_1:=_fQ_1*_nSign;
+M_SShaped.fV_0:=fStartVelo;
+M_SShaped.fV_1:=fEndVelo;
+M_SShaped.fAmax:=_fAmax;
+M_SShaped.fAmin:=_fAmin;
+M_SShaped.fJmax:=_fJmax;
+M_SShaped.fJmin:=_fJmin;
+M_SShaped.fA_LimAcc:=_fA_LimAcc;
+M_SShaped.fA_LimDec:=_fA_LimDec;
+M_SShaped.fVlim:=_fVlim;
+
+M_SShaped.fTj1:=_fTj1;
+M_SShaped.fTj2:=_fTj2;
+M_SShaped.fTa:=_fTa;
+M_SShaped.fTd:=_fTd;
+M_SShaped.fTv:=_fTv;
+M_SShaped.fT:=_fT;
+
+
+
+
+
+
+
+
+
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="M_SShapedPosition" Id="{4c6b4d80-9aee-431c-bb0d-24e2b352382e}">
+      <Declaration><![CDATA[METHOD M_SShapedPosition : ST_Point
+VAR_INPUT
+	fTime: LREAL;
+	stS_Parameter: ST_SParam;
+END_VAR
+VAR
+	_nSign: INT;
+	///加速段加加速时长
+	_fTj1: LREAL;
+	///减速段加加速度时长
+	_fTj2: LREAL;
+	_fTa: LREAL;
+	_fTd: LREAL;
+	_fTv: LREAL;
+	_fT: LREAL;
+	_fQ: LREAL;
+	_fV: LREAL;
+	_fA: LREAL;
+	_fJ: LREAL;
+	_fQ_0: LREAL;
+	_fQ_1: LREAL;
+	_fV_0: LREAL;
+	_fV_1: LREAL;
+	_fJmax: LREAL;
+	_fJmin: LREAL;
+	///运行时加速段最大加速度
+	_fA_LimAcc: LREAL;
+	///运行时减速段最大加速度
+	_fA_LimDec: LREAL;
+	_fVlim: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[_fTj1:=stS_Parameter.fTj1;
+_fTj2:=stS_Parameter.fTj2;
+_fTa:=stS_Parameter.fTa;
+_fTd:=stS_Parameter.fTd;
+_fTv:=stS_Parameter.fTv;
+_nSign:=LREAL_TO_INT((stS_Parameter.fQ_1-stS_Parameter.fQ_0)/ABS(stS_Parameter.fQ_1-stS_Parameter.fQ_0));
+_fQ_0:=stS_Parameter.fQ_0*_nSign;
+_fQ_1:=stS_Parameter.fQ_1*_nSign;
+_fV_0:=stS_Parameter.fV_0;
+_fV_1:=stS_Parameter.fV_1;
+_fT:=_fTa+_fTv+_fTd;
+
+_fJmax:=stS_Parameter.fJmax;
+_fA_LimAcc:=stS_Parameter.fA_LimAcc;
+_fA_LimDec:=stS_Parameter.fA_LimDec;
+_fVlim:=stS_Parameter.fVlim;
+
+
+//位置计算
+IF (fTime>=0)AND (fTime<_fTj1)THEN                    //加加速段
+	//_fJ:=_fJmax; 
+	//_fA:=_fJmax*fTime;
+	//_fV:=_fV_0+0.5*_fJmax*fTime*fTime;
+	//_fQ:=_fQ_0+_fV_0*fTime+_fJmax*fTime*fTime*fTime/6;
+	IF (_fVlim<_fV_0) THEN
+		_fJ:=-_fJmax; 
+		_fA:=-_fJmax*fTime;
+		_fV:=_fV_0-0.5*_fJmax*fTime*fTime;
+		_fQ:=_fQ_0+_fV_0*fTime-_fJmax*fTime*fTime*fTime/6;
+	ELSE
+		_fJ:=_fJmax; 
+		_fA:=_fJmax*fTime;
+		_fV:=_fV_0+0.5*_fJmax*fTime*fTime;
+		_fQ:=_fQ_0+_fV_0*fTime+_fJmax*fTime*fTime*fTime/6;
+	END_IF
+	
+ELSIF(fTime>=_fTj1)AND (fTime<(_fTa-_fTj1))THEN      //匀加速段
+	_fJ:=0;
+    //_fA:=_fJmax*_fTj1;
+	//_fV:=_fV_0+_fA*(fTime-0.5*_fTj1);
+	//_fQ:=_fQ_0+_fV_0*fTime+_fA*(3*fTime*fTime-3*_fTj1*fTime+_fTj1*_fTj1)/6;
+	
+	IF (_fVlim<_fV_0) THEN
+		_fA:=-_fJmax*_fTj1;
+		_fV:=_fV_0+_fA*(fTime-0.5*_fTj1);
+	    _fQ:=_fQ_0+_fV_0*fTime+_fA*(3*fTime*fTime-3*_fTj1*fTime+_fTj1*_fTj1)/6;
+	ELSE
+		_fA:=_fJmax*_fTj1;
+		_fV:=_fV_0+_fA*(fTime-0.5*_fTj1);
+	    _fQ:=_fQ_0+_fV_0*fTime+_fA*(3*fTime*fTime-3*_fTj1*fTime+_fTj1*_fTj1)/6;
+	END_IF
+		
+ELSIF(fTime>=(_fTa-_fTj1))AND (fTime<_fTa)THEN      //减加速段
+	//_fJmin:=-_fJmax;
+	//_fJ:=_fJmin;
+    //_fA:=-_fJmin*(_fTa-fTime);
+	//_fV:=_fVlim+0.5*_fJmin*(_fTa-fTime)*(_fTa-fTime);
+	//_fQ:=_fQ_0+0.5*(_fV_0+_fVlim)*_fTa-_fVlim*(_fTa-fTime)-_fJmin*(_fTa-fTime)*(_fTa-fTime)*(_fTa-fTime)/6;
+	
+	IF (_fVlim<_fV_0) THEN
+		_fJ:=_fJmax;
+		_fA:=-_fJmax*(_fTa-fTime);
+		_fV:=_fVlim+0.5*_fJmax*(_fTa-fTime)*(_fTa-fTime);
+	    _fQ:=_fQ_0+0.5*(_fV_0+_fVlim)*_fTa-_fVlim*(_fTa-fTime)-_fJmax*(_fTa-fTime)*(_fTa-fTime)*(_fTa-fTime)/6;
+	ELSE
+	    _fJmin:=-_fJmax;
+	    _fJ:=_fJmin;
+        _fA:=-_fJmin*(_fTa-fTime);
+		_fV:=_fVlim+0.5*_fJmin*(_fTa-fTime)*(_fTa-fTime);
+	    _fQ:=_fQ_0+0.5*(_fV_0+_fVlim)*_fTa-_fVlim*(_fTa-fTime)-_fJmin*(_fTa-fTime)*(_fTa-fTime)*(_fTa-fTime)/6;
+	END_IF
+	
+ELSIF(fTime>=_fTa)AND (fTime<(_fTa+_fTv))THEN       //匀速段
+	_fJ:=0;
+    _fA:=0;
+	_fV:=_fVlim;
+	_fQ:=_fQ_0+0.5*(_fV_0+_fVlim)*_fTa+_fVlim*(fTime-_fTa);
+ELSIF(fTime>=(_fTa+_fTv))AND (fTime<(_fT-_fTd+_fTj2))THEN      //减加速段
+	_fJmin:=-_fJmax;
+	_fJ:=_fJmin;
+    _fA:=_fJmin*(fTime-_fT+_fTd);
+	_fV:=_fVlim+0.5*_fJmin*(fTime-_fT+_fTd)*(fTime-_fT+_fTd);
+	_fQ:=_fQ_1-0.5*(_fV_1+_fVlim)*_fTd+_fVlim*(fTime-_fT+_fTd)+_fJmin*(fTime-_fT+_fTd)*(fTime-_fT+_fTd)*(fTime-_fT+_fTd)/6;
+
+ELSIF(fTime>=(_fT-_fTd+_fTj2))AND (fTime<(_fT-_fTj2))THEN      //减匀减速段
+	_fJmin:=-_fJmax;
+	_fJ:=0;
+    _fA:=_fJmin*_fTj2;
+	_fV:=_fVlim+_fA*(fTime-_fT+_fTd-0.5*_fTj2);
+	_fQ:=_fQ_1-0.5*(_fV_1+_fVlim)*_fTd+_fVlim*(fTime-_fT+_fTd)+_fA*(3*(fTime-_fT+_fTd)*(fTime-_fT+_fTd)-3*_fTj2*(fTime-_fT+_fTd)+_fTj2*_fTj2)/6;
+	
+ELSIF(fTime>=(_fT-_fTj2))AND (fTime<=_fT)THEN                  //减减速段
+	
+	_fJ:=_fJmax;
+    _fA:=-_fJmax*(_fT-fTime);
+	_fV:=_fV_1+0.5*_fJmax*(_fT-fTime)*(_fT-fTime);
+	_fQ:=_fQ_1-_fV_1*(_fT-fTime)-_fJmax*(_fT-fTime)*(_fT-fTime)*(_fT-fTime)/6;
+ELSE
+	_fJ:=0;
+	_fA:=0;
+	_fV:=_fV_1;
+	_fQ:=_fQ_1;
+END_IF
+M_SShapedPosition.fPosition:=_fQ*_nSign;
+M_SShapedPosition.fVelocity:=_fV;
+M_SShapedPosition.fAccleration:=_fA;
+M_SShapedPosition.fbJerk:=_fJ;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="M_TShaped" Id="{74300534-d35e-4c4a-b75a-ccfe41dfc465}">
+      <Declaration><![CDATA[METHOD M_TShaped : ST_TimeRef
+VAR_INPUT
+	fVeloStart: LREAL;
+	fVeloEnd: LREAL;
+	fTargetVelo: LREAL;
+	fDistance: LREAL;
+	fAccleration: LREAL;
+	fDeceleration: LREAL;
+END_VAR
+VAR
+	_fTempVe_S: LREAL;
+	_fTempVe_E: LREAL;
+	_fVe_S: LREAL;
+	_fVe_E: LREAL;
+	_fT: LREAL;
+	_fT1: LREAL;
+	_fDisMin: LREAL;
+	_fT_Min: LREAL;
+	_fAcc: LREAL;
+	_fVelo: LREAL;
+	_fAccDis: LREAL;
+	///_fAcc        :LREAL;
+	_fT11: LREAL;
+	_fT12: LREAL;
+	_fT13: LREAL;
+	_fD: LREAL;
+	_fA: LREAL;
+	_fB: LREAL;
+	_fC: LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[(*_fTempVe_S := fVeloStart;
+_fTempVe_E := fVeloEnd;
+_fVe_S := MIN(_fTempVe_S,_fTempVe_E);
+_fVe_E := MAX(_fTempVe_S,_fTempVe_E);
+
+
+IF (fAccleration<>0)THEN
+   _fT:= (_fVe_E-_fVe_S)/fAccleration;
+   
+END_IF
+_fDisMin:= 0.5*_fT*(_fVe_S+_fVe_E);
+IF (fDistance=0) OR (fDeceleration=0)OR (fAccleration=0)OR (fTargetVelo=0)THEN 
+	RETURN;
+END_IF
+
+IF(fDistance<=_fDisMin)  THEN   
+	_fT_Min  := 2*fDistance/(_fVe_S+_fVe_E);
+	_fTa := _fT_Min/2;
+	_fTd := _fT_Min/2;
+	_fTv := 0;
+	_fAcc  := (_fVe_E-_fVe_S)/_fT_Min;
+	_fVelo  := (_fVe_E+_fVe_S)/2;
+			
+ELSIF(fTargetVelo<=_fVe_S) THEN
+    _fTa := (_fVe_S-fTargetVelo)/fDeceleration;
+    _fTd := (_fVe_E-fTargetVelo)/fAccleration;
+    _fAccDis := (_fVe_S+fTargetVelo)*_fTa/2+(fTargetVelo+_fVe_E)*_fTd/2;
+    IF (_fAccDis>fDistance)  THEN
+               
+			    _fD := _fVe_S/fAccleration-_fVe_E/fAccleration;
+                _fA := -2*fAccleration;
+                _fB := 2*_fVe_S-2*fAccleration*_fD+2*_fVe_E;
+                _fC := _fD*(_fVe_S+_fVe_E)-2*fDistance;
+                _fTd:= (-_fB+SQRT(_fB*_fB-4*_fA*_fC))/(2*_fA);
+                _fTa:= _fTd+_fD;
+                _fTv:= 0.0; 
+     ELSE
+         _fTv := (fDistance-(_fVe_S+fTargetVelo)*_fTa/2-(_fVe_E+fTargetVelo)*_fTd/2)/fTargetVelo;
+     END_IF
+ELSIF ((fTargetVelo<=_fVe_E)AND(fTargetVelo>=_fVe_S)) THEN 
+            _fTa := (fTargetVelo-_fVe_S)/fAccleration;
+            _fTd := (_fVe_E-fTargetVelo)/fDeceleration;
+            _fAccDis := (_fVe_S+_fVe_E)*(_fTa+_fTd )/2;
+			
+            IF (_fAccDis>fDistance)THEN
+                _fT1:= 2*fDistance/(_fVe_E+_fVe_S);
+                _fAcc:=(_fVe_E-_fVe_S)/_fT1;
+                _fTa := (fTargetVelo-_fVe_S)/_fAcc;
+                _fTd := (_fVe_E-fTargetVelo)/_fAcc;
+                _fTv := 0.0;
+            else
+                _fTv := (fDistance-(fTargetVelo+_fVe_S)*_fTa/2-(fTargetVelo+_fVe_E)*_fTd/2)/fTargetVelo;
+            END_IF
+ELSE
+
+			_fTa := (fTargetVelo-_fVe_S)/fAccleration;
+            _fTd := (fTargetVelo-_fVe_E)/fDeceleration;
+            _fAccDis := (fTargetVelo+_fVe_S)*_fTa*0.5+(fTargetVelo+_fVe_E)*_fTd*0.5;
+            
+            IF (_fAccDis>fDistance)THEN
+                _fD := _fVe_E/fAccleration-_fVe_S/fAccleration;
+                _fA := 2*fAccleration;
+                _fB := _fVe_S+3*_fVe_E+fAccleration*_fD;
+                _fC := _fD*(_fVe_S+_fVe_E)-2*fDistance;
+                _fTd := (-_fB+SQRT(_fB*_fB-4*_fA*_fC))/(2*_fA);
+                _fTa:= _fTd+_fD;
+                _fTv:= 0.0;  
+                  
+            else
+                _fTv := (fDistance-(fTargetVelo+_fVe_S)*_fTa*0.5-(fTargetVelo+_fVe_E)*_fTd*0.5)/fTargetVelo;
+               
+            END_IF     
+END_IF
+IF (_fTempVe_S>_fTempVe_E)THEN
+    _fT11 := _fTa;
+    _fT12 := _fTv;
+    _fT13 := _fTd;
+    _fTa := _fT13;
+    _fTv := _fT12; 
+    _fTd := _fT11;
+END_IF 
+M_TShaped.fTa:= _fTa;
+M_TShaped.fTv:= _fTv;
+M_TShaped.fTd:= _fTd;
+M_TShaped.fT1:= _fTa;
+M_TShaped.fT2:= _fTa+_fTv;
+M_TShaped.fT3:= _fTa+_fTv+_fTd;*)
+
+
+_fTempVe_S := fVeloStart;
+_fTempVe_E := fVeloEnd;
+//_fVe_S := MIN(_fTempVe_S,_fTempVe_E);
+//_fVe_E := MAX(_fTempVe_S,_fTempVe_E);
+_fVe_S :=_fTempVe_S;
+_fVe_E :=_fTempVe_E;
+
+
+IF (_fVe_S<=_fVe_E)THEN
+	IF (fAccleration<>0)THEN
+	   _fT:= (_fVe_E-_fVe_S)/fAccleration;
+	   
+	END_IF
+	_fDisMin:= 0.5*_fT*(_fVe_S+_fVe_E);
+	IF (fDistance=0) OR (fDeceleration=0)OR (fAccleration=0)OR (fTargetVelo=0)THEN 
+		RETURN;
+	END_IF
+	
+	IF(fDistance<=_fDisMin)  THEN   
+		_fT_Min  := 2*fDistance/(_fVe_S+_fVe_E);
+		_fTa := _fT_Min/2;
+		_fTd := _fT_Min/2;
+		_fTv := 0;
+		_fAcc  := (_fVe_E-_fVe_S)/_fT_Min;
+		_fVelo  := (_fVe_E+_fVe_S)/2;
+				
+	ELSIF(fTargetVelo<=_fVe_S) THEN
+		_fTa := (_fVe_S-fTargetVelo)/fDeceleration;
+		_fTd := (_fVe_E-fTargetVelo)/fAccleration;
+		_fAccDis := (_fVe_S+fTargetVelo)*_fTa/2+(fTargetVelo+_fVe_E)*_fTd/2;
+		IF (_fAccDis>fDistance)  THEN
+				   
+					(*_fD := _fVe_S/fAccleration-_fVe_E/fAccleration;
+					_fA := -2*fAccleration;
+					_fB := 2*_fVe_S-2*fAccleration*_fD+2*_fVe_E;
+					_fC := _fD*(_fVe_S+_fVe_E)-2*fDistance;
+					_fTd:= (-_fB+SQRT(_fB*_fB-4*_fA*_fC))/(2*_fA);
+					_fTa:= _fTd+_fD;
+					_fTv:= 0.0; *)
+					_fA:=fAccleration+fDeceleration;
+					_fB := fAccleration*_fVe_S*_fVe_S+fDeceleration*_fVe_E*_fVe_E-2*fDistance*fDeceleration*fDeceleration;
+					_fC := SQRT(_fB/_fA);
+					_fVelo  := _fC;  
+					_fTa:=(_fVe_S-_fVelo)/fDeceleration;
+					_fTd:=(_fVe_E-_fVelo)/fAccleration;
+					_fTv:= 0.0;
+		 ELSE
+			 _fTv := (fDistance-(_fVe_S+fTargetVelo)*_fTa/2-(_fVe_E+fTargetVelo)*_fTd/2)/fTargetVelo;
+		 END_IF
+	ELSIF ((fTargetVelo<=_fVe_E)AND(fTargetVelo>=_fVe_S)) THEN 
+				_fTa := (fTargetVelo-_fVe_S)/fAccleration;
+				_fTd := (_fVe_E-fTargetVelo)/fAccleration;
+				_fAccDis := (_fVe_S+_fVe_E)*(_fTa+_fTd )/2;
+				
+				IF (_fAccDis>fDistance)THEN
+					(*_fT1:= 2*fDistance/(_fVe_E+_fVe_S);
+					_fAcc:=(_fVe_E-_fVe_S)/_fT1;
+					_fTa := (fTargetVelo-_fVe_S)/_fAcc;
+					_fTd := (_fVe_E-fTargetVelo)/_fAcc;
+					_fTv := 0.0;*)
+					
+					_fTa:=0.5*(_fVe_E-_fVe_S)/fAccleration;
+					_fTd:=0.5*(_fVe_E-_fVe_S)/fAccleration;
+					_fTv:= 0.0; 
+				else
+					_fTv := (fDistance-(fTargetVelo+_fVe_S)*_fTa/2-(fTargetVelo+_fVe_E)*_fTd/2)/fTargetVelo;
+				END_IF
+	ELSE
+	
+				_fTa := (fTargetVelo-_fVe_S)/fAccleration;
+				_fTd := (fTargetVelo-_fVe_E)/fDeceleration;
+				_fAccDis := (fTargetVelo+_fVe_S)*_fTa*0.5+(fTargetVelo+_fVe_E)*_fTd*0.5;
+				
+				IF (_fAccDis>fDistance)THEN
+					//_fD := _fVe_E/fAccleration-_fVe_S/fAccleration;
+					//_fA := 2*fAccleration;
+					//_fB := _fVe_S+3*_fVe_E+fAccleration*_fD;
+					//_fC := _fD*(_fVe_S+_fVe_E)-2*fDistance;
+				   // _fTd := (-_fB+SQRT(_fB*_fB-4*_fA*_fC))/(2*_fA);
+				   // _fTa:= _fTd+_fD;
+				   // _fTv:= 0.0;  
+					_fA:=fAccleration+fDeceleration;
+					_fB := 2*fDistance*fDeceleration*fAccleration+fDeceleration*_fVe_S*_fVe_S+fAccleration*_fVe_E*_fVe_E;
+					_fC := SQRT(_fB/_fA);
+					_fVelo  := _fC;  
+					_fTa:=(_fVelo-_fVe_S)/fAccleration;
+					_fTd:=(_fVelo-_fVe_E)/fDeceleration;
+					_fTv:= 0.0;  
+				else
+					_fTv := (fDistance-(fTargetVelo+_fVe_S)*_fTa*0.5-(fTargetVelo+_fVe_E)*_fTd*0.5)/fTargetVelo;
+				   
+				END_IF     
+	END_IF
+(*IF (_fTempVe_S>_fTempVe_E)THEN
+    _fT11 := _fTa;
+    _fT12 := _fTv;
+    _fT13 := _fTd;
+    _fTa := _fT13;
+    _fTv := _fT12; 
+    _fTd := _fT11;
+END_IF *)
+ELSE
+	IF (fAccleration<>0)THEN
+	   //_fT:= (_fVe_E-_fVe_S)/fAccleration;
+	   _fT:= (_fVe_S-_fVe_E)/fAccleration;
+	END_IF
+	_fDisMin:= 0.5*_fT*(_fVe_S+_fVe_E);
+	IF (fDistance=0) OR (fDeceleration=0)OR (fAccleration=0)OR (fTargetVelo=0)THEN 
+		RETURN;
+	END_IF
+	IF(fDistance<=_fDisMin)  THEN   
+		
+		(*_fT_Min  := 2*fDistance/(_fVe_S+_fVe_E);
+		_fTa := _fT_Min/2;
+		_fTd := _fT_Min/2;
+		_fTv := 0;
+		_fAcc  := (_fVe_S-_fVe_E)/_fT_Min;
+		_fVelo  := (_fVe_E+_fVe_S)/2;
+		//**********04.24 
+		IF (fTargetVelo<=_fVe_S)THEN
+			_fTa := 0;
+			_fTd:=2*fDistance/_fVe_S;
+			_fTv := 0;
+		    _fAcc := _fVe_S/_fTd;
+			IF _fAcc>50000000 THEN 
+				_fAcc:=50000000;
+			END_IF
+		END_IF*)
+		//************* 04.24	
+		// 04.25 
+		_fTa := 0;
+		//_fTd:=2*fDistance/_fVe_S;  //05.26
+		_fTd:=2*fDistance/(_fVe_S+_fVe_E);  //05.26
+		_fTv := 0;
+		_fAcc := _fVe_S/_fTd;
+		//04.25  
+			
+	ELSIF(fTargetVelo<=_fVe_E) THEN
+		_fTa := (_fVe_S-fTargetVelo)/fDeceleration;
+		_fTd := (_fVe_E-fTargetVelo)/fAccleration;
+		_fAccDis := (_fVe_S+fTargetVelo)*_fTa/2+(fTargetVelo+_fVe_E)*_fTd/2;
+		IF (_fAccDis>fDistance)  THEN
+				   
+					(*_fD := _fVe_S/fAccleration-_fVe_E/fAccleration;
+					_fA := -2*fAccleration;
+					_fB := 2*_fVe_S-2*fAccleration*_fD+2*_fVe_E;
+					_fC := _fD*(_fVe_S+_fVe_E)-2*fDistance;
+					_fTd:= (-_fB+SQRT(_fB*_fB-4*_fA*_fC))/(2*_fA);
+					_fTa:= _fTd+_fD;
+					_fTv:= 0.0; *)
+					_fA:=fAccleration+fDeceleration;
+					_fB := fAccleration*_fVe_S*_fVe_S+fDeceleration*_fVe_E*_fVe_E-2*fDistance*fAccleration*fDeceleration;
+					_fC := SQRT(_fB/_fA);
+					_fVelo  := _fC;  
+					_fTa:=(_fVe_S-_fVelo)/fDeceleration;
+					_fTd:=(_fVe_E-_fVelo)/fAccleration;
+					_fTv:= 0.0;
+		 ELSE
+			 _fTv := (fDistance-(_fVe_S+fTargetVelo)*_fTa/2-(_fVe_E+fTargetVelo)*_fTd/2)/fTargetVelo;
+		 END_IF
+	ELSIF ((fTargetVelo<=_fVe_S)AND(fTargetVelo>=_fVe_E)) THEN 
+				_fTa := (_fVe_S-fTargetVelo)/fDeceleration;
+				_fTd := (fTargetVelo-_fVe_E)/fDeceleration;
+				_fAccDis := (_fVe_S+_fVe_E)*(_fTa+_fTd )/2;
+				
+				IF (_fAccDis>fDistance)THEN
+					(*_fT1:= 2*fDistance/(_fVe_E+_fVe_S);
+					_fAcc:=(_fVe_E-_fVe_S)/_fT1;
+					_fTa := (fTargetVelo-_fVe_S)/_fAcc;
+					_fTd := (_fVe_E-fTargetVelo)/_fAcc;
+					_fTv := 0.0;*)
+					_fTa:=0.5*(_fVe_S-_fVe_E)/fDeceleration;
+					_fTd:=0.5*(_fVe_S-_fVe_E)/fDeceleration;
+					_fTv:= 0.0; 
+				else
+					_fTv := (fDistance-(fTargetVelo+_fVe_S)*_fTa/2-(fTargetVelo+_fVe_E)*_fTd/2)/fTargetVelo;
+				END_IF
+	ELSE
+	
+				_fTa := (fTargetVelo-_fVe_S)/fAccleration;
+				_fTd := (fTargetVelo-_fVe_E)/fDeceleration;
+				_fAccDis := (fTargetVelo+_fVe_S)*_fTa*0.5+(fTargetVelo+_fVe_E)*_fTd*0.5;
+				
+				IF (_fAccDis>fDistance)THEN
+					//_fD := _fVe_E/fAccleration-_fVe_S/fAccleration;
+					//_fA := 2*fAccleration;
+					//_fB := _fVe_S+3*_fVe_E+fAccleration*_fD;
+					//_fC := _fD*(_fVe_S+_fVe_E)-2*fDistance;
+				   // _fTd := (-_fB+SQRT(_fB*_fB-4*_fA*_fC))/(2*_fA);
+				   // _fTa:= _fTd+_fD;
+				   // _fTv:= 0.0;  
+					_fA:=fAccleration+fDeceleration;
+					_fB := 2*fDistance*fAccleration*fDeceleration+fDeceleration*_fVe_S*_fVe_S+fAccleration*_fVe_E*_fVe_E;
+					_fC := SQRT(_fB/_fA);
+					_fVelo  := _fC;  
+					_fTa:=(_fVelo-_fVe_S)/fAccleration;
+					_fTd:=(_fVelo-_fVe_E)/fDeceleration;
+					_fTv:= 0.0;  
+				else
+					_fTv := (fDistance-(fTargetVelo+_fVe_S)*_fTa*0.5-(fTargetVelo+_fVe_E)*_fTd*0.5)/fTargetVelo;
+				   
+				END_IF     
+	END_IF
+END_IF
+
+M_TShaped.fTa:= _fTa;
+M_TShaped.fTv:= _fTv;
+M_TShaped.fTd:= _fTd;
+M_TShaped.fT1:= _fTa;
+M_TShaped.fT2:= _fTa+_fTv;
+M_TShaped.fT3:= _fTa+_fTv+_fTd;
+
+
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_TrajectoryPlanning">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TrajectoryPlanning.Get_TimeRef.Get">
+      <LineId Id="3" Count="6" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TrajectoryPlanning.Get_TimeRef.Set">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TrajectoryPlanning.M_GetPosition">
+      <LineId Id="3" Count="237" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TrajectoryPlanning.M_Ploynom3">
+      <LineId Id="3" Count="24" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TrajectoryPlanning.M_Ploynom5">
+      <LineId Id="3" Count="27" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TrajectoryPlanning.M_SShaped">
+      <LineId Id="3" Count="218" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TrajectoryPlanning.M_SShapedPosition">
+      <LineId Id="3" Count="105" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_TrajectoryPlanning.M_TShaped">
+      <LineId Id="3" Count="302" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

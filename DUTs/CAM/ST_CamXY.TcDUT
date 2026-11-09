@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_CamXY" Id="{f75c7bb7-9ab9-4b4a-a807-1a00e9836133}">
+    <Declaration><![CDATA[TYPE ST_CamXY :
+STRUCT
+	///凸轮主轴缩放最小值
+	fTableMasterMin: LREAL;
+	///凸轮主轴缩放最大值
+	fTableMasterMax: LREAL;
+	///凸轮从轴缩放最小值
+	fTableSlaveMin: LREAL;
+	///凸轮从轴缩放最大值
+	fTableSlaveMax: LREAL;
+	afPoint: ARRAY[0..255, 0..1] OF LREAL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_MotionFunctionType" Id="{9f276136-3cc0-4e59-a635-232308120e2f}">
+    <Declaration><![CDATA[{attribute 'qualified_only' := ''}
+{attribute 'strict' := ''}
+TYPE E_MotionFunctionType :
+(
+	MOTIONFUNCTYPE_NOTDEF,
+	/// 1: polynom with order 1 
+	MOTIONFUNCTYPE_POLYNOM1 := 1,
+	/// 3: polynom with order 3 (rest <-> rest) 
+	MOTIONFUNCTYPE_POLYNOM3 := 3,
+	/// 5: polynom with order 5 (rest <-> rest) 
+	MOTIONFUNCTYPE_POLYNOM5 := 5,
+	/// 8: polynom with order 8 (rest <-> rest) 
+	MOTIONFUNCTYPE_POLYNOM8 := 8,
+	MOTIONFUNCTYPE_SINUSLINIE := 10,
+	MOTIONFUNCTYPE_MODSINUSLINIE := 11
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

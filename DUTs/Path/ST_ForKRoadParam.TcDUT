@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_ForKRoadParam" Id="{5fcca6a2-7bd2-461e-93e2-efaef2f15214}">
+    <Declaration><![CDATA[TYPE ST_ForKRoadParam :
+STRUCT
+	nRoadID: UINT;
+	fStartPosition: LREAL;
+	fEndPosition: LREAL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>
